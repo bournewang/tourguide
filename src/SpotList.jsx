@@ -63,28 +63,28 @@ function SpotList({ onSpotClick }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="max-w-3xl mx-auto px-6">
+    <div className="min-h-screen bg-gray-50 py-4">
+      <div className="max-w-3xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-center mb-4 text-gray-800">
           🏯 少林寺景点导览
         </h1>
         
         {/* Location status */}
         {locationError ? (
-          <div className="bg-red-50 rounded-2xl p-4 mb-6 text-center shadow-sm">
-            <p className="text-base text-red-600">
+          <div className="bg-red-50 rounded-xl p-3 mb-4 text-center shadow-sm">
+            <p className="text-sm text-red-600">
               📍 无法获取位置: {locationError}
             </p>
           </div>
         ) : userLocation ? (
-          <div className="bg-green-50 rounded-2xl p-4 mb-6 text-center shadow-sm">
-            <p className="text-base text-green-600 font-medium">
+          <div className="bg-green-50 rounded-xl p-3 mb-4 text-center shadow-sm">
+            <p className="text-sm text-green-600 font-medium">
               ✅ 已获取您的位置，按距离远近排序
             </p>
           </div>
         ) : (
-          <div className="bg-yellow-50 rounded-2xl p-4 mb-6 text-center shadow-sm">
-            <p className="text-base text-yellow-600">
+          <div className="bg-yellow-50 rounded-xl p-3 mb-4 text-center shadow-sm">
+            <p className="text-sm text-yellow-600">
               ⏳ 正在获取您的位置，请稍候...
             </p>
           </div>
@@ -94,39 +94,39 @@ function SpotList({ onSpotClick }) {
           {spotsWithDistance.map((spot, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl p-6 flex items-center space-x-6 hover:shadow-lg cursor-pointer shadow-sm transition-all duration-200 hover:-translate-y-1"
+              className="bg-white rounded-xl p-4 flex items-center space-x-4 hover:shadow-lg cursor-pointer shadow-sm transition-all duration-200 hover:-translate-y-1"
               onClick={() => onSpotClick && onSpotClick(spot)}
             >
               <img
                 src={spot.image_thumb}
                 alt={spot.name}
-                className="w-20 h-20 object-cover rounded-xl"
+                className="w-16 h-16 object-cover rounded-lg"
                 onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/80x80/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name);
+                  e.target.src = 'https://via.placeholder.com/64x64/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name);
                 }}
               />
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{spot.name}</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">{spot.name}</h3>
                 <div className="space-y-1">
                   {/* <p className="text-base text-gray-600">
                     ⏱️ 参观时长: {spot.suggested_duration}
                   </p> */}
                   {spot.distance !== null && (
-                    <p className="text-base text-blue-600 font-semibold">
+                    <p className="text-sm text-blue-600 font-semibold">
                       📍 {formatDistance(spot.distance)}
                     </p>
                   )}
                 </div>
               </div>
-              <div className="text-blue-500 text-2xl font-bold">
+              <div className="text-blue-500 text-xl font-bold">
                 ▶
               </div>
             </div>
           ))}
         </div>
         
-        <div className="mt-8 text-center">
-          <p className="text-base text-gray-600">
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
             👆 点击任意景点查看详情和听取讲解
           </p>
         </div>
