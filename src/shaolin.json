@@ -1,0 +1,213 @@
+[
+  {
+    "name": "山门",
+    "latitude": 34.507083,
+    "longitude": 112.935694,
+    "image_thumb": "/images/shanmen.jpg",
+    "image_full": "/images/shanmen_full.jpg",
+    "extended_description": "山门是进入少林寺的第一道门户，相当于寺庙的“迎宾厅”。您看到的这座山门建于清代，1975年重修。门匾上“少林寺”三个字出自康熙皇帝之手，还盖有御笔印章。门前的两座石狮是明代留下的，不仅威武，还寓意镇邪护寺。左右两侧还有嘉靖年间的石坊，是少林寺保存最完好的古建筑之一。",
+    "audio_script": "欢迎来到少林寺的山门。这里可是寺里的第一道门楼，1975年重修，康熙皇帝那手笔的“少林寺”门匾非常霸气。门口两座石狮是明代古董，它们不仅造型威武，还代表守护和吉祥。再瞧瞧那两座石坊，是嘉靖年造的，见证了寺里的繁华与千年历史。走过它们，就踏入了千年的佛门世界。",
+    "suggested_duration": "1分10秒",
+    "background_sounds": [
+      "风声 + 远处钟声",
+      "轻微鸟鸣"
+    ],
+    "audioFile": "spot_01.mp3"
+  },
+  {
+    "name": "天王殿",
+    "latitude": 34.5073,
+    "longitude": 112.9356,
+    "image_thumb": "/images/tianwangdian.jpg",
+    "image_full": "/images/tianwang_full.jpg",
+    "extended_description": "天王殿是寺内第二道建筑，原本在1928年被焚毁，1982年重建。殿门两侧站着“哼哈二将”，分别张嘴与闭嘴，象征守护佛法。殿内是四大天王，他们掌管风雨与善恶，寓意风调雨顺、降福人间。",
+    "audio_script": "我们现在走进天王殿。门口两位金刚是“哼哈二将”，一张嘴一闭嘴，专门看守佛门。里面供奉的四大天王，他们掌控风调雨顺、降福护世。这殿虽是1982年重建，但沿袭古制，风格依旧庄严。",
+    "suggested_duration": "50秒",
+    "background_sounds": [
+      "鼓声静候开启",
+      "低频风声营造庄重感"
+    ],
+    "audioFile": "spot_02.mp3"
+  },
+  {
+    "name": "大雄宝殿",
+    "latitude": 34.5075,
+    "longitude": 112.9354,
+    "image_thumb": "/images/daxiongbaodian.jpg",
+    "image_full": "/images/daxiongbaodian_full.jpg",
+    "extended_description": "大雄宝殿是少林寺最核心的佛事厅堂，1928年被毁，1985年重建。面阔五间，重檐歇山顶。殿内主供三世佛：过去药师佛、现在释迦牟尼、未来阿弥陀佛，两侧还有十八罗汉彩塑。独具特色的是中间还供有达摩祖师与紧那罗王像，两根大柱下放有麒麟雕像，象征禅宗完全汉化。",
+    "audio_script": "这是大雄宝殿，也是少林寺的中心殿堂。1985年重建，整体气势恢宏。里面供奉了三世佛：过去的药师佛、现在的释迦牟尼和未来的阿弥陀佛，墙上还有十八罗汉。最特别的是还有达摩祖师和紧那罗王的像，象征少林功与禅的结合。看柱下的麒麟，它提醒我们少林禅武的中国特色。",
+    "suggested_duration": "1分30秒",
+    "background_sounds": [
+      "木鱼缓拍",
+      "轻微诵经声"
+    ],
+    "audioFile": "spot_03.mp3"
+  },
+  {
+    "name": "塔林",
+    "latitude": 34.508,
+    "longitude": 112.9358,
+    "image_thumb": "/images/talin.jpg",
+    "image_full": "/images/talin_full.jpg",
+    "extended_description": "塔林是少林寺历代高僧的墓塔群，现存240多座，从唐到清，塔高不一，规模全国最大，记录了佛教历史的传奇故事。",
+    "audio_script": "现在我们来到塔林，这里埋葬着240多位少林高僧，年代从唐到清，各式砖塔高低错落。每一座塔都有它的故事，见证了禅武并重的历史。塔林规模庞大，是研究古塔和书法雕刻的宝贵遗产。",
+    "suggested_duration": "1分20秒",
+    "background_sounds": [
+      "风吹松涛",
+      "轻雨滴答"
+    ],
+    "audioFile": "spot_04.mp3"
+  },
+  {
+    "name": "碑林",
+    "latitude": 34.5079,
+    "longitude": 112.93565,
+    "image_thumb": "/images/beilin.jpg",
+    "image_full": "/images/beilin_full.jpg",
+    "extended_description": "碑林中有108通石碑，唐宋时期真迹最精，内容涵盖佛教文献、寺院史记、书法艺术及重大事件，是少林历史的石雕宝库。",
+    "audio_script": "碑林里有108通石碑，很多是唐宋原作，内容包括寺史、佛教经典、名人书法。它不仅是历史的记录，还展示了中国书法艺术的发展。",
+    "suggested_duration": "1分钟",
+    "background_sounds": [
+      "脚步声回荡",
+      "风声穿林"
+    ],
+    "audioFile": "spot_05.mp3"
+  },
+  {
+    "name": "锤谱堂",
+    "latitude": 34.50785,
+    "longitude": 112.9356,
+    "image_thumb": "/images/chuiputang.jpg",
+    "image_full": "/images/chuiputang_full.jpg",
+    "extended_description": "锤谱堂通过泥塑和木雕展现了少林功夫发展史，包括各家拳法、十三棍僧救驾等经典场景，是了解武术脉络的好地方。",
+    "audio_script": "这里是锤谱堂，墙上和回廊里的雕塑形象生动，展示了少林拳法的发展，从基本功到十三棍僧救驾的故事，都可以在这里零距离“观看”。",
+    "suggested_duration": "1分钟10秒",
+    "background_sounds": [
+      "木槌击打",
+      "武僧吆喝"
+    ],
+    "audioFile": "spot_06.mp3"
+  },
+  {
+    "name": "藏经阁",
+    "latitude": 34.5077,
+    "longitude": 112.9355,
+    "image_thumb": "/images/cangjingge.jpg",
+    "image_full": "/images/cangjingge_full.jpg",
+    "extended_description": "藏经阁又称法堂，用来存放佛经和讲经，内有明代汉白玉卧佛和一口古代大铁锅，见证少林寺昔日僧众的生活场景。",
+    "audio_script": "这里是藏经阁，又叫法堂，是僧人讲经和存经的地方。里面有一尊洁白的汉白玉卧佛，还有一口明代大锅，据说当时能煮几百人份的僧饭，真是壮观。",
+    "suggested_duration": "1分钟",
+    "background_sounds": [
+      "诵经声",
+      "僧人交谈"
+    ],
+    "audioFile": "spot_07.mp3"
+  },
+  {
+    "name": "方丈室",
+    "latitude": 34.50765,
+    "longitude": 112.93545,
+    "image_thumb": "/images/fangzhang.jpg",
+    "image_full": "/images/fangzhangshi_full.jpg",
+    "extended_description": "方丈室是主持和尚的居所，相传乾隆皇帝曾在此宿泊。门口还有元代警钟，仅供紧急使用，非常有历史韵味。",
+    "audio_script": "方丈室是方丈的生活和办公处，传说乾隆皇帝曾经住在这里呢。旁边那口元代警钟，可不是随便敲的，平时静静地守在那儿，显得格外庄重。",
+    "suggested_duration": "55秒",
+    "background_sounds": [
+      "轻钟声",
+      "低语声"
+    ],
+    "audioFile": "spot_08.mp3"
+  },
+  {
+    "name": "达摩亭（立雪亭）",
+    "latitude": 34.5076,
+    "longitude": 112.9353,
+    "image_thumb": "/images/lixueting.jpg",
+    "image_full": "/images/damoting_full.jpg",
+    "extended_description": "达摩亭又叫立雪亭，供奉达摩祖师及慧可二祖，传说慧可立雪断臂求法，这里见证了一段佛教传奇。",
+    "audio_script": "这里是达摩亭，也叫立雪亭。据说慧可立雪断臂求法的故事就发生在这里。想象一下大雪纷飞，他毅然断臂，只为求得佛法，真是令人动容。",
+    "suggested_duration": "1分钟5秒",
+    "background_sounds": [
+      "雪声飘落",
+      "风声呼啸"
+    ],
+    "audioFile": "spot_09.mp3",
+    "videoFile": "spot_09.mp4"
+  },
+  {
+    "name": "千佛殿",
+    "latitude": 34.50755,
+    "longitude": 112.9352,
+    "image_thumb": "/images/qianfodian.jpg",
+    "image_full": "/images/qianfodian_full.jpg",
+    "extended_description": "千佛殿是全寺最大殿，供奉毗卢佛和五百罗汉壁画，殿内砖地上还留有和尚练武踩出的脚坑，充满禅意与功夫气息。",
+    "audio_script": "千佛殿是少林寺最大的殿堂，里面供奉毗卢佛，墙上绘有五百罗汉，气势恢宏。地上的脚坑是武僧练功留下的痕迹，仿佛还能听见他们昔日的心跳。",
+    "suggested_duration": "1分20秒",
+    "background_sounds": [
+      "脚步声",
+      "轻微钟磬"
+    ],
+    "audioFile": "spot_10.mp3"
+  },
+  {
+    "name": "初祖庵",
+    "latitude": 34.5082,
+    "longitude": 112.9359,
+    "image_thumb": "/images/chuzuan.jpg",
+    "image_full": "/images/chuzuan_full.jpg",
+    "extended_description": "初祖庵位于五乳峰下，为纪念达摩祖师面壁所建，建筑为宋代木结构，是国家重点文物保护单位。",
+    "audio_script": "初祖庵建在山坡上，是为缅怀达摩祖师当年面壁而建。它保持了宋代木结构的原貌，是国家重点文物，从外观看仿佛时间在这里缓缓流动。",
+    "suggested_duration": "50秒",
+    "background_sounds": [
+      "风吹松涛",
+      "远处钟声"
+    ],
+    "audioFile": "spot_11.mp3"
+  },
+  {
+    "name": "二祖庵",
+    "latitude": 34.5083,
+    "longitude": 112.93595,
+    "image_thumb": "/images/erzuan.jpg",
+    "image_full": "/images/erzuan_full.jpg",
+    "extended_description": "二祖庵坐落在钵玉峰上，是二祖慧可修行地，海拔最高，环境静谧，充满禅意。",
+    "audio_script": "这里是慧可修行的二祖庵，位于山顶，海拔较高，空气清新。站在这里，仿佛能感受到当年他静坐求法、断臂求真的决心。",
+    "suggested_duration": "45秒",
+    "background_sounds": [
+      "山风呼啸",
+      "松涛声"
+    ],
+    "audioFile": "spot_12.mp3"
+  },
+  {
+    "name": "达摩洞",
+    "latitude": 34.5084,
+    "longitude": 112.936,
+    "image_thumb": "/images/damodong.jpg",
+    "image_full": "/images/damodong_full.jpg",
+    "extended_description": "达摩洞深约7米，是达摩面壁九年的修行地，洞旁石刻多为历代文人所留，是佛教史上的圣地。",
+    "audio_script": "达摩洞是达摩祖师面壁九年的地方，空间虽小，但历史震撼。洞口两旁刻有历代留下的诗文，让人仿佛穿越到那段幽深岁月。",
+    "suggested_duration": "1分钟",
+    "background_sounds": [
+      "洞穴回声",
+      "轻风"
+    ],
+    "audioFile": "spot_13.mp3"
+  },
+  {
+    "name": "十方禅院",
+    "latitude": 34.5085,
+    "longitude": 112.9361,
+    "image_thumb": "/images/shifangchanyuan.jpg",
+    "image_full": "/images/shifangchanyuan_full.jpg",
+    "extended_description": "十方禅院位于少林寺对面，拥有五百罗汉堂及四季方位建筑布局，是个融合佛教文化与建筑艺术的静谧禅境。",
+    "audio_script": "十方禅院就在河对岸，这里有五百罗汉堂和按春夏秋冬、东西南北建成的建筑群。环境安静，是体验禅意和欣赏佛教建筑的好地方。",
+    "suggested_duration": "1分钟10秒",
+    "background_sounds": [
+      "流水潺潺",
+      "鸟鸣"
+    ],
+    "audioFile": "spot_14.mp3"
+  }
+]
