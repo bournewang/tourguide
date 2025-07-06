@@ -1,0 +1,802 @@
+[
+  {
+    "name": "方一坤野山菌胡辣汤(红椿里店)",
+    "address": "石楠路与红椿里交叉口",
+    "location": {
+      "lat": 34.808917,
+      "lng": 113.558352
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "3b7b42c530d4aded2a02e1e5",
+    "telephone": "17760770590",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "豫姥家大锅台(冬青街店)",
+    "address": "冬青街秦庄嘉园7号楼1层2层附2号（冬青街与石楠路交叉口东行100米路南）",
+    "location": {
+      "lat": 34.806997,
+      "lng": 113.559436
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "b96c34f7e4c9294f8936eef4",
+    "telephone": "17838195958",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "趁趁自助小火锅(升龙店)",
+    "address": "玉兰街和春藤路交叉口往东100米路南",
+    "location": {
+      "lat": 34.810724,
+      "lng": 113.553861
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "788a0e49019733073904b14e",
+    "telephone": "15378783853",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "久年记原汤烩面(石楠路店)",
+    "address": "枫杨街道科学大道81-1号(科学大道石楠路西北角)",
+    "location": {
+      "lat": 34.814625,
+      "lng": 113.557778
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "fecded5fef33cb1d40024564",
+    "telephone": "(0371)68051999",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "小马炸鸡(高新店)",
+    "address": "郑州市中原区石楠路爱丁堡幼儿园南侧约50米",
+    "location": {
+      "lat": 34.808713,
+      "lng": 113.558316
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "f85a4d655ba40da7018972eb",
+    "telephone": "15517121992",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "街边串串",
+    "address": "梧桐街道秦庄嘉园",
+    "location": {
+      "lat": 34.807025,
+      "lng": 113.558561
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "29e8f2775981de1c9d95ded5",
+    "telephone": "15036061342",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "信阳农家小院(红枫里店)",
+    "address": "红枫里8号",
+    "location": {
+      "lat": 34.809531,
+      "lng": 113.573188
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "7b69a04e895942233617dc8f",
+    "telephone": "18638711366",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "鸭舞优北京烤鸭(冬青街店)",
+    "address": "雪松路冬青街交叉口向西100米路南",
+    "location": {
+      "lat": 34.807039,
+      "lng": 113.561
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "e32f982350f291bf2e47337f",
+    "telephone": "15936692763",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "姚彦华胡辣汤(冬青街总店)",
+    "address": "冬青街31号朗悦公园府秦庄嘉园",
+    "location": {
+      "lat": 34.807004,
+      "lng": 113.559929
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "b4a0f6131f48f25b17b54bb7",
+    "telephone": "18638688777",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "食欲老院子(瑞达路店)",
+    "address": "郑州市中原区瑞达路汉庭酒店(郑州瑞达路店)",
+    "location": {
+      "lat": 34.809669,
+      "lng": 113.574103
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "feb12b07cd33df792b201aa9",
+    "telephone": "(0371)65099009",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "李军力烧烤(公园里店)",
+    "address": "科学大道石楠路北150米路西（近渤海银行）",
+    "location": {
+      "lat": 34.815856,
+      "lng": 113.55752
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "ae509d7f9710347314948e33",
+    "telephone": "(0371)88915927",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "云晓仙腊味汤煲(公园里店)",
+    "address": "国槐街朗悦公园里B栋2层B2003-B2004号铺",
+    "location": {
+      "lat": 34.816059,
+      "lng": 113.556086
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "28be98988399ee4ed4851fde",
+    "telephone": "13083604933",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "君福苑信阳菜(合欢街店)",
+    "address": "梧桐街郑州高新企业加速器产业园南区C17号",
+    "location": {
+      "lat": 34.802274,
+      "lng": 113.550968
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "511900117a3a0cf8f12d8364",
+    "telephone": "13608682598",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "农家地锅柴鸡铁锅炖(冬青街店)",
+    "address": "冬青街与春藤路交叉口西北角",
+    "location": {
+      "lat": 34.80801,
+      "lng": 113.552598
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "eac86082b0e27128631c679e",
+    "telephone": "18439871687",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "玉兴信阳食府(升龙又一城店)",
+    "address": "春藤路与科学大道交汇处南500米",
+    "location": {
+      "lat": 34.808851,
+      "lng": 113.552566
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "48b37fd97fccd327a8175aac",
+    "telephone": "(0371)56539988",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "佰味王婆大虾(春藤路店)",
+    "address": "冬青街春藤路交叉口向北一百米路西",
+    "location": {
+      "lat": 34.808355,
+      "lng": 113.552605
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "96b021491d4a4c4c9b68b490",
+    "telephone": "13733836101",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "口口福仲家酒店",
+    "address": "玉兰街103号一楼",
+    "location": {
+      "lat": 34.811055,
+      "lng": 113.538295
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "5d8b6d86a91ff69de8e58247",
+    "telephone": "0371-67835955",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "塔斯汀中国汉堡(升龙又一城店)",
+    "address": "科学大道长椿路",
+    "location": {
+      "lat": 34.810279,
+      "lng": 113.553139
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "de8b8dac5734f1bdf7b91689",
+    "telephone": "15729387605",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "哆哆客汉堡(升龙又一城店)",
+    "address": "玉兰街75号",
+    "location": {
+      "lat": 34.81073,
+      "lng": 113.556943
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "73677ff6c50e5b8cf4e73b37",
+    "telephone": "15713891968,19138190208",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "大河水浒烤肉(升龙又一城店)",
+    "address": "玉兰街与春藤路交叉口向东20米路南",
+    "location": {
+      "lat": 34.810721,
+      "lng": 113.553725
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "ab426faac07ca51e0482c276",
+    "telephone": "(0371)55681210,18994386508",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "勾魂拌面(秦庄嘉园店)",
+    "address": "高新技术产业开发区",
+    "location": {
+      "lat": 34.807018,
+      "lng": 113.559396
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "74df0aff9abe9dc481288af3",
+    "telephone": "13213172759",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "华莱士·全鸡汉堡(升龙又一城店)",
+    "address": "玉兰街洼刘新城1号楼门面房向东第五间",
+    "location": {
+      "lat": 34.811255,
+      "lng": 113.555993
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "e114e3e15318d5ca08ccdd44",
+    "telephone": "15736721955,18137837158",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "阿利茄汁面(升龙又一城店)",
+    "address": "河南省郑州市中原区玉兰街与春藤路交叉口南100米",
+    "location": {
+      "lat": 34.8102,
+      "lng": 113.553087
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "82d4c1f7dbced21172210b3a",
+    "telephone": "17638092706",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "潘记蚝店·海鲜烧烤(高新区店)",
+    "address": "玉兰街洼刘新城B区1栋1楼",
+    "location": {
+      "lat": 34.809533,
+      "lng": 113.554735
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "d39a8c0a7b65fb0858109375",
+    "telephone": "13525577642",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "铁锅炖菜(朗悦公园府秦庄嘉园店)",
+    "address": "河南省郑州市中原区梧桐街道冬青街31号朗悦公园府秦庄嘉园",
+    "location": {
+      "lat": 34.807052,
+      "lng": 113.559366
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "40611205729a2ec309a8d423",
+    "telephone": "",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "米多面多(升龙又一城店)",
+    "address": "玉兰街洼刘新城B区5号楼1层4号",
+    "location": {
+      "lat": 34.810607,
+      "lng": 113.554407
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "d52ea29594df941aaf080f61",
+    "telephone": "17788119776",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "肯德基(公园里店)",
+    "address": "国槐街南石楠路东朗悦公园里5号楼一层西南角",
+    "location": {
+      "lat": 34.816352,
+      "lng": 113.558317
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "99f71280c8dc3788ca09f024",
+    "telephone": "(0371)55001194,13526817870",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "萧记三鲜烩面(瑞达路店)",
+    "address": "梧桐街道瑞达路81号(近樱花路)",
+    "location": {
+      "lat": 34.802822,
+      "lng": 113.575885
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "f757e6ee1084ef0e270bd0a6",
+    "telephone": "(0371)67998299",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "南流米线强(睿智花园店)",
+    "address": "睿智花园5号楼",
+    "location": {
+      "lat": 34.803402,
+      "lng": 113.564502
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "b31596304f0719fa1ef74d86",
+    "telephone": "13323811997",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "王婆大虾(玉兰街店)",
+    "address": "玉兰街78号洼刘新城A区1栋底商2-21",
+    "location": {
+      "lat": 34.81134,
+      "lng": 113.555831
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "e068f687387574d0a8f7299d",
+    "telephone": "",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "裕碗居方城炝锅烩面(春藤路店)",
+    "address": "洼刘新城B区",
+    "location": {
+      "lat": 34.810019,
+      "lng": 113.553143
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "91baeb3487abdbd200ec0185",
+    "telephone": "13673628417",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "升级版鸡蛋灌饼(冬青街店)",
+    "address": "冬青街31号秦庄嘉园8号楼3号商铺",
+    "location": {
+      "lat": 34.807002,
+      "lng": 113.560119
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "298159f65f2d7f243617dc10",
+    "telephone": "13693634924",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "拜云飞牛排胡辣汤(升龙店)",
+    "address": "春藤路玉兰街交叉口南70米路东6-1",
+    "location": {
+      "lat": 34.809807,
+      "lng": 113.553135
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "fe66b126dbb6119c6240a998",
+    "telephone": "15090191695",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "秦妈一大碗大盆骨鲜炒鸡(雪松路店)",
+    "address": "雪松路与红椿里交叉口东北角",
+    "location": {
+      "lat": 34.809331,
+      "lng": 113.562653
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "87d85ae4337069f97369d35d",
+    "telephone": "18537129314",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "三厂烩羊肉(银屏路店)",
+    "address": "银屏路冬青街交叉口东南角",
+    "location": {
+      "lat": 34.80685,
+      "lng": 113.56784
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "a5e25d03ca378eaa59bbbc11",
+    "telephone": "(0371)60956333",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "百年家和东北饺子私房菜(升龙又一城店)",
+    "address": "高新技术开发区科学大道与春藤路交叉口向南100米",
+    "location": {
+      "lat": 34.809653,
+      "lng": 113.553135
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "0cc356b207a803d6260bd0b4",
+    "telephone": "15738374956",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "贾氏淮南牛肉汤(高新区店)",
+    "address": "冬青街春藤路河南电子商务产业园5号楼附1号1层北",
+    "location": {
+      "lat": 34.808054,
+      "lng": 113.552607
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "4d7590ddaa217dec88b98833",
+    "telephone": "13525747621",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "臻顺阁北京烤鸭(洼刘新城店)",
+    "address": "河南省郑州市中原区玉兰街78号院洼刘新城A区2号楼1楼78-16号东户",
+    "location": {
+      "lat": 34.811278,
+      "lng": 113.554843
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "0edc3502172e71eec61e517b",
+    "telephone": "18898118545",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "米大个豆腐菜饸珞面(升龙又一城店)",
+    "address": "玉兰街78-21号",
+    "location": {
+      "lat": 34.81123,
+      "lng": 113.554499
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "d52b7306e1be3e46220262fd",
+    "telephone": "17839970681",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "豆小二粉浆面条(洼刘新城店)",
+    "address": "玉兰街78号洼刘新城A区商铺2-14",
+    "location": {
+      "lat": 34.811268,
+      "lng": 113.555722
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "ebed58c2269462eb0f0e6b3f",
+    "telephone": "18236969603",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "玛格利塔现烤披萨·意面(升龙店)",
+    "address": "洼刘新城B区5号楼一层18号",
+    "location": {
+      "lat": 34.810696,
+      "lng": 113.554341
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "3fd6faa602c631cfddee8b4f",
+    "telephone": "",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "明星御谷老碗面(冬青街店)",
+    "address": "河南省郑州市中原区秦庄嘉园7-附15",
+    "location": {
+      "lat": 34.807073,
+      "lng": 113.558792
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "62b05c28a322100a1df74d78",
+    "telephone": "13333480670",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "盛弘热干面(河南省电子商务产业园店)",
+    "address": "长椿路电子商务产业园5号楼附01号",
+    "location": {
+      "lat": 34.80805,
+      "lng": 113.552598
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "bb870f65b770e33196f08c3a",
+    "telephone": "18237266999",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "酸菜鱼",
+    "address": "河南省郑州市中原区春藤路与冬青街交叉口北100米",
+    "location": {
+      "lat": 34.808305,
+      "lng": 113.55259
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "5f1d30b4ed3680f6e2110338",
+    "telephone": "",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "四兄弟烧烤(洼刘新城A区店)",
+    "address": "郑州市中原区玉兰街洼刘新城-A区",
+    "location": {
+      "lat": 34.811267,
+      "lng": 113.555789
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "fead74bf1183023521026244",
+    "telephone": "15984682730",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "香酥鸡香酥鸭(洼刘新城B区店)",
+    "address": "郑州市中原区玉兰街洼刘新城-A区",
+    "location": {
+      "lat": 34.811233,
+      "lng": 113.554772
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "0245b376ccff8cf5b34c49f1",
+    "telephone": "",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "金运来摇滚炒鸡(春藤路店)",
+    "address": "郑州市中原区春藤路洼刘新城-B区",
+    "location": {
+      "lat": 34.809471,
+      "lng": 113.553334
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "8041de92ff5ca4b4b35c6a9d",
+    "telephone": "",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "尼森堡(朗悦公园府悦澜苑店)",
+    "address": "郑州市中原区冬青街秦庄嘉园西南侧约60米",
+    "location": {
+      "lat": 34.805103,
+      "lng": 113.557795
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "82faf33c169e725a0b1cc746",
+    "telephone": "",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "鸡蛋灌饼烧饼夹菜五香烧饼现磨豆浆",
+    "address": "梧桐街道玉兰街78号院商铺1号楼附11号分割窗口(天天惠购超市门口)",
+    "location": {
+      "lat": 34.810206,
+      "lng": 113.553137
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "fdb2eb4e28b13c76f7e73b71",
+    "telephone": "13733195481,15713892290",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  },
+  {
+    "name": "李同學濮阳裹凉皮(升龙又一城店)",
+    "address": "春藤路与玉兰街向南100米路东77号6-02号",
+    "location": {
+      "lat": 34.810238,
+      "lng": 113.553093
+    },
+    "type": "",
+    "rating": 0,
+    "uid": "da4f32ebd8b5264f3913fd62",
+    "telephone": "17719899651",
+    "detail_url": "",
+    "price": "",
+    "business_hours": "",
+    "tag": ""
+  }
+]
