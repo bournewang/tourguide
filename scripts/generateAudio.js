@@ -2,14 +2,15 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import speechSdk from 'microsoft-cognitiveservices-speech-sdk';
+import process from 'process';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // You need to set these environment variables or replace with your actual values
-const subscriptionKey = process.env.SPEECH_KEY || 'YOUR_SPEECH_KEY';
-const serviceRegion = process.env.SPEECH_REGION || 'eastus';
+const subscriptionKey = process.env.AZURE_SPEECH_KEY || 'YOUR_SPEECH_KEY';
+const serviceRegion = process.env.AZURE_SPEECH_REGION || 'eastus';
 
 if (subscriptionKey === 'YOUR_SPEECH_KEY') {
     console.error('❌ Please set your Azure Speech Services credentials!');
@@ -21,8 +22,8 @@ if (subscriptionKey === 'YOUR_SPEECH_KEY') {
 
 async function generateAudioFiles() {
     try {
-        // Load spots data
-        const spotsDataPath = path.join(__dirname, '../src/shaolin.json');
+        // Load spots data from the new source
+        const spotsDataPath = path.join(__dirname, '../src/data/spots-shaolinsi.json');
         const spotsData = JSON.parse(fs.readFileSync(spotsDataPath, 'utf8'));
         
         // Create audio output directory if it doesn't exist
@@ -31,13 +32,18 @@ async function generateAudioFiles() {
             fs.mkdirSync(audioDir, { recursive: true });
         }
         
-        console.log(`🎵 Starting audio generation for ${spotsData.length} spots...`);
+        // Filter spots that have descriptions
+        const spotsWithDescriptions = spotsData.filter(spot => 
+            spot.description || spot.extended_description
+        );
+        
+        console.log(`🎵 Starting audio generation for ${spotsWithDescriptions.length} spots with descriptions...`);
         
         const results = [];
         
-        for (let index = 0; index < spotsData.length; index++) {
-            const spot = spotsData[index];
-            console.log(`\n📍 Processing spot ${index + 1}/${spotsData.length}: ${spot.name}`);
+        for (let index = 0; index < spotsWithDescriptions.length; index++) {
+            const spot = spotsWithDescriptions[index];
+            console.log(`\n📍 Processing spot ${index + 1}/${spotsWithDescriptions.length}: ${spot.name}`);
             
             try {
                 // Configure speech synthesis
@@ -46,8 +52,9 @@ async function generateAudioFiles() {
                 speechConfig.speechSynthesisVoiceName = 'zh-CN-XiaoxiaoNeural';
                 speechConfig.speechSynthesisOutputFormat = speechSdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3;
                 
-                // Create simple filename
-                const filename = `spot_${String(index + 1).padStart(2, '0')}.mp3`;
+                // Create descriptive filename based on spot name
+                const safeName = spot.name.replace(/[^\w\u4e00-\u9fff]/g, '_').replace(/_+/g, '_');
+                const filename = `${safeName}.mp3`;
                 const filepath = path.join(audioDir, filename);
                 
                 // Create audio config
@@ -56,10 +63,10 @@ async function generateAudioFiles() {
                 // Create synthesizer
                 const synthesizer = new speechSdk.SpeechSynthesizer(speechConfig, audioConfig);
                 
-                // Generate speech
+                // Generate speech from description field
                 await new Promise((resolve, reject) => {
                     synthesizer.speakTextAsync(
-                        spot.audio_script,
+                        spot.description || spot.extended_description || '暂无描述',
                         result => {
                             if (result.reason === speechSdk.ResultReason.SynthesizingAudioCompleted) {
                                 console.log(`✅ Audio generated: ${filename}`);
@@ -79,8 +86,8 @@ async function generateAudioFiles() {
                     );
                 });
                 
-                // Add audioFile field to the spot data
-                spot.audioFile = filename;
+                // Add audioFile field to the spot data (including /audio prefix)
+                spot.audioFile = `/audio/${filename}`;
                 
                 results.push({
                     success: true,
@@ -101,7 +108,7 @@ async function generateAudioFiles() {
         
         // Save updated spots data back to file
         fs.writeFileSync(spotsDataPath, JSON.stringify(spotsData, null, 2), 'utf8');
-        console.log(`\n📄 Updated shaolin.json with audioFile fields`);
+        console.log(`\n📄 Updated spots-shaolinsi.json with audioFile fields`);
         
         // Print summary
         const successful = results.filter(r => r.success).length;
@@ -119,7 +126,7 @@ async function generateAudioFiles() {
         }
         
         console.log('\n📁 Generated audio files:');
-        results.filter(r => r.success).forEach((result, index) => {
+        results.filter(r => r.success).forEach((result) => {
             console.log(`  ${result.filename} - ${result.spotName}`);
         });
         
