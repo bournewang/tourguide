@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { TargetAreaContext } from './TargetAreaContextDef';
+import { wgs84ToBaidu } from '../utils/coordinateUtils';
+import { dataService } from '../utils/dataService';
 
 export const TargetAreaProvider = ({ children }) => {
   const [currentTargetArea, setCurrentTargetArea] = useState(null);
@@ -77,11 +79,12 @@ export const TargetAreaProvider = ({ children }) => {
   useEffect(() => {
     const loadScenicAreas = async () => {
       try {
-        const response = await fetch('/src/data/scenic-area.json');
-        const data = await response.json();
+        console.log('TargetAreaContext: Loading scenic areas using dataService...');
+        const data = await dataService.getScenicAreas();
+        console.log('TargetAreaContext: Loaded scenic areas:', data);
         setScenicAreas(data);
       } catch (error) {
-        console.error('Failed to load scenic areas:', error);
+        console.error('TargetAreaContext: Failed to load scenic areas:', error);
       }
     };
     loadScenicAreas();
@@ -235,15 +238,17 @@ export const TargetAreaProvider = ({ children }) => {
 
   // Set default target area when scenic areas are loaded
   useEffect(() => {
+    console.log('TargetAreaContext: scenicAreas.length:', scenicAreas.length, 'currentTargetArea:', currentTargetArea);
+    
     if (scenicAreas.length > 0 && !currentTargetArea) {
       // Set Shaolin Temple as default target area
       const shaolinArea = scenicAreas.find(area => area.name === '少林寺');
       if (shaolinArea) {
-        console.log('Setting default target area:', shaolinArea.name);
+        console.log('TargetAreaContext: Setting default target area:', shaolinArea.name);
         setCurrentTargetArea(shaolinArea);
       } else {
         // Fallback to first area if Shaolin not found
-        console.log('Setting default target area:', scenicAreas[0].name);
+        console.log('TargetAreaContext: Shaolin not found, setting default target area:', scenicAreas[0].name);
         setCurrentTargetArea(scenicAreas[0]);
       }
     }
@@ -260,23 +265,27 @@ export const TargetAreaProvider = ({ children }) => {
     return R * c;
   };
 
-  const isPointInBounds = (point, bounds) => {
-    return point.lat >= bounds.sw.lat && 
-           point.lat <= bounds.ne.lat && 
-           point.lng >= bounds.sw.lng && 
-           point.lng <= bounds.ne.lng;
+  const isPointInBounds = (pointBaidu, bounds) => {
+    // Both point and bounds are now in Baidu coordinate system
+    return pointBaidu.lat >= bounds.sw.lat && 
+           pointBaidu.lat <= bounds.ne.lat && 
+           pointBaidu.lng >= bounds.sw.lng && 
+           pointBaidu.lng <= bounds.ne.lng;
   };
 
-  const getNearestArea = () => {
-    if (!userLocation) return null;
+  const getNearestArea = (userLocationBaidu) => {
+    if (!userLocationBaidu) return null;
     
     let nearest = null;
     let minDistance = Infinity;
     
     scenicAreas.forEach(area => {
+      // Both user location and area bounds are in Baidu BD-09, calculate center
       const centerLat = (area.bounds.sw.lat + area.bounds.ne.lat) / 2;
       const centerLng = (area.bounds.sw.lng + area.bounds.ne.lng) / 2;
-      const distance = calculateDistance(userLocation.lat, userLocation.lng, centerLat, centerLng);
+      
+      // Calculate distance in Baidu coordinate system
+      const distance = calculateDistance(userLocationBaidu.lat, userLocationBaidu.lng, centerLat, centerLng);
       
       if (distance < minDistance) {
         minDistance = distance;
@@ -290,10 +299,14 @@ export const TargetAreaProvider = ({ children }) => {
   const autoSelectTargetArea = () => {
     if (!userLocation || scenicAreas.length === 0) return;
     
-    console.log('Auto-selecting target area based on user location:', userLocation);
+    console.log('Auto-selecting target area based on user location (WGS-84):', userLocation);
+    
+    // Convert user location from WGS-84 to Baidu for all calculations
+    const userLocationBaidu = wgs84ToBaidu(userLocation.lat, userLocation.lng);
+    console.log('User location converted to Baidu:', userLocationBaidu);
     
     // First, check if user is inside any scenic area boundary
-    const currentArea = scenicAreas.find(area => isPointInBounds(userLocation, area.bounds));
+    const currentArea = scenicAreas.find(area => isPointInBounds(userLocationBaidu, area.bounds));
     
     if (currentArea) {
       console.log('User is inside scenic area:', currentArea.name);
@@ -302,7 +315,7 @@ export const TargetAreaProvider = ({ children }) => {
     }
     
     // If not inside any area, find the nearest one
-    const nearestArea = getNearestArea();
+    const nearestArea = getNearestArea(userLocationBaidu);
     if (nearestArea) {
       console.log('User is not in any area, selecting nearest:', nearestArea.name, 'distance:', nearestArea.distance);
       setCurrentTargetArea(nearestArea);

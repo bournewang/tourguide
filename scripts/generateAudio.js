@@ -22,8 +22,30 @@ if (subscriptionKey === 'YOUR_SPEECH_KEY') {
 
 async function generateAudioFiles() {
     try {
-        // Load spots data from the new source
-        const spotsDataPath = path.join(__dirname, '../src/data/spots-shaolinsi.json');
+        // Get spots file path from command line argument
+        const spotsFileName = process.argv[2];
+        if (!spotsFileName) {
+            console.error('❌ Please provide a spots JSON file name as argument!');
+            console.log('Usage: node generateAudio.js <spots-file-name>');
+            console.log('Example: node generateAudio.js spots-shaolinsi.json');
+            console.log('Example: node generateAudio.js spots-taishishan.json');
+            process.exit(1);
+        }
+        
+        // Build full path to spots data file
+        const spotsDataPath = path.join(__dirname, '../public/data', spotsFileName);
+        
+        // Check if file exists
+        if (!fs.existsSync(spotsDataPath)) {
+            console.error(`❌ Spots file not found: ${spotsDataPath}`);
+            console.log('Available files in public/data/:');
+            const dataDir = path.join(__dirname, '../public/data');
+            const files = fs.readdirSync(dataDir).filter(f => f.endsWith('.json'));
+            files.forEach(file => console.log(`  - ${file}`));
+            process.exit(1);
+        }
+        
+        console.log(`📁 Loading spots data from: ${spotsFileName}`);
         const spotsData = JSON.parse(fs.readFileSync(spotsDataPath, 'utf8'));
         
         // Create audio output directory if it doesn't exist
@@ -108,7 +130,7 @@ async function generateAudioFiles() {
         
         // Save updated spots data back to file
         fs.writeFileSync(spotsDataPath, JSON.stringify(spotsData, null, 2), 'utf8');
-        console.log(`\n📄 Updated spots-shaolinsi.json with audioFile fields`);
+        console.log(`\n📄 Updated ${spotsFileName} with audioFile fields`);
         
         // Print summary
         const successful = results.filter(r => r.success).length;

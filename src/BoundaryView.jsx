@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTargetArea } from './hooks/useTargetArea';
 import { wgs84ToBaidu } from './utils/coordinateUtils';
+import { ttsService } from './utils/ttsService';
 
 const BoundaryView = ({ onBack }) => {
   const { currentTargetArea: globalCurrentTargetArea, setTargetArea } = useTargetArea();
@@ -16,6 +17,7 @@ const BoundaryView = ({ onBack }) => {
   const [showSpots, setShowSpots] = useState(true);
   const [allDataLoaded, setAllDataLoaded] = useState(false);
   const [clickedLocation, setClickedLocation] = useState(null);
+  const [cacheStatus, setCacheStatus] = useState(null);
   const clickHandlerRef = useRef(null);
   const spotsRef = useRef({});
   const showSpotsRef = useRef(true);
@@ -24,8 +26,7 @@ const BoundaryView = ({ onBack }) => {
 
   const loadScenicAreas = async () => {
     try {
-      const response = await fetch('/src/data/scenic-area.json');
-      const data = await response.json();
+      const data = await ttsService.getScenicAreas();
       setScenicAreas(data);
       setLoading(false);
     } catch (error) {
@@ -36,36 +37,41 @@ const BoundaryView = ({ onBack }) => {
 
   const loadSpots = async () => {
     try {
-    //   console.log('Loading spots for scenic areas:', scenicAreas);
+      console.log('🗺️ DEBUG MODE: Loading ALL spots data for boundary view map');
       const spotsData = {};
+      let totalSpots = 0;
+      let visibleSpots = 0;
       
       for (const area of scenicAreas) {
         try {
-        //   console.log(`Loading spots for area: ${area.name}, file: ${area.spotsFile}`);
-          const response = await fetch(`/src/data/${area.spotsFile}`);
-          const areaSpots = await response.json();
-        //   console.log(`Loaded ${areaSpots.length} spots for ${area.name}:`, areaSpots);
-          spotsData[area.name] = areaSpots;
+          const areaSpots = await ttsService.getSpotData(area.name);
+          
+          // Filter spots by display field for map display
+          const visibleAreaSpots = areaSpots.filter(spot => spot.display !== "hide");
+          
+          console.log(`📍 Loaded ${visibleAreaSpots.length}/${areaSpots.length} visible spots for ${area.name}`);
+          spotsData[area.name] = visibleAreaSpots;
+          totalSpots += areaSpots.length;
+          visibleSpots += visibleAreaSpots.length;
         } catch (error) {
           console.warn(`Failed to load spots for ${area.name}:`, error);
           spotsData[area.name] = [];
         }
       }
       
-    //   console.log('Final spots data:', spotsData);
-      
       // Log a sample spot to check structure
       const sampleArea = Object.keys(spotsData)[0];
       if (sampleArea && spotsData[sampleArea].length > 0) {
-        // console.log('Sample spot structure:', spotsData[sampleArea][0]);
-        // console.log('Sample spot keys:', Object.keys(spotsData[sampleArea][0]));
-        // console.log('Sample spot location:', spotsData[sampleArea][0].location);
-        // console.log('Sample spot coordinates:', spotsData[sampleArea][0].coordinates);
+        console.log('Sample spot structure:', spotsData[sampleArea][0]);
       }
       
       setSpots(spotsData);
       setAllDataLoaded(true); // Mark all data as loaded
-    //   console.log('All data loaded successfully!');
+      console.log(`🎉 DEBUG MODE: All data loaded successfully! ${visibleSpots}/${totalSpots} spots visible on map`);
+      
+      // Update cache status
+      const status = ttsService.getCacheStatus();
+      setCacheStatus(status);
     } catch (error) {
       console.error('Failed to load spots:', error);
       setAllDataLoaded(true); // Still mark as loaded even if there's an error
@@ -613,6 +619,17 @@ const BoundaryView = ({ onBack }) => {
       <div className="text-center p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
         <h1 className="text-2xl font-bold mb-1">🗺️ Scenic Area Boundaries</h1>
         <p className="text-sm opacity-90">View and explore the boundaries of all scenic areas</p>
+        {/* Cache Status Indicator */}
+        {cacheStatus && (
+          <div className="text-xs opacity-75 mt-2">
+            💾 缓存: {cacheStatus.validEntries}/{cacheStatus.totalEntries} 条有效
+            {cacheStatus.totalSize > 0 && (
+              <span className="ml-2">
+                ({Math.round(cacheStatus.totalSize / 1024)}KB)
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Back Button */}

@@ -1,0 +1,24 @@
+{
+  "name": "tourguide-backend",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker backend for TourGuide project",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "test": "wrangler dev --test"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "keywords": [
+    "cloudflare",
+    "worker",
+    "tts",
+    "tourguide"
+  ],
+  "author": "TourGuide Team",
+  "license": "MIT"
+} 

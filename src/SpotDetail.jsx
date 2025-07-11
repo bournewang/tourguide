@@ -1,391 +1,122 @@
 import { useState, useEffect, useRef } from 'react';
+import { useHowlerAudio } from './hooks/useHowlerAudio';
 
 function SpotDetail({ spot, onBack }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [audioError, setAudioError] = useState(false);
   const [videoError, setVideoError] = useState(false);
-  const [mediaType, setMediaType] = useState('video'); // 'video', 'imageSequence', 'audio', or 'tts'
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [imageSequenceTime, setImageSequenceTime] = useState(0);
-  const [realAudioDuration, setRealAudioDuration] = useState(0); // Store real audio duration
-  const [currentTime, setCurrentTime] = useState(0); // Current playback time
-  const [playbackRate, setPlaybackRate] = useState(1.0); // Playback speed
-  const [showControls, setShowControls] = useState(false); // Show/hide advanced controls
-  const audioRef = useRef(null);
+  const [mediaType, setMediaType] = useState('video'); // 'video', 'imageSequence', or 'audio'
+  const [showControls, setShowControls] = useState(false);
   const videoRef = useRef(null);
-  const imageSequenceTimerRef = useRef(null);
-  const timeUpdateTimerRef = useRef(null);
 
   // Get media files directly from spot data
   const audioFile = spot.audioFile || null;
   const videoFile = spot.videoFile ? `/video/${spot.videoFile}` : null;
   const imageSequence = spot.imageSequence || null;
 
+  // Use Howler hook for audio and image sequence
+  const {
+    isPlaying,
+    isLoading,
+    currentTime,
+    duration: realAudioDuration,
+    playbackRate,
+    currentImageIndex,
+    error: audioError,
+    play: playAudio,
+    pause: pauseAudio,
+    seekRelative,
+    changePlaybackRate,
+    formatTime
+  } = useHowlerAudio(audioFile, imageSequence);
+
   // Determine which media to use
   const hasVideo = videoFile && !videoError;
   const hasImageSequence = imageSequence && imageSequence.length > 0;
   const hasAudio = audioFile && !audioError;
 
-  const playImageSequence = () => {
-    if (!hasImageSequence || !hasAudio) {
-      console.log('No image sequence or audio found, falling back to audio only');
-      playPreGeneratedAudio();
-      return;
-    }
-
-    setIsLoading(true);
-    setMediaType('imageSequence');
-    setCurrentImageIndex(0);
-    setImageSequenceTime(0);
-
-    // Create new audio element for image sequence
-    const audio = new Audio(audioFile);
-    audioRef.current = audio;
-
-    audio.addEventListener('loadedmetadata', () => {
-      // Capture real audio duration
-      setRealAudioDuration(audio.duration);
-    });
-
-    audio.addEventListener('loadeddata', () => {
-      setIsLoading(false);
-      setIsPlaying(true);
-      
-      // Apply current playback rate
-      audio.playbackRate = playbackRate;
-      
-      // Start image sequence timer and time update timer
-      startImageSequenceTimer();
-      startTimeUpdateTimer();
-      
-      audio.play().catch(error => {
-        console.error('Error playing audio with image sequence:', error);
-        setIsLoading(false);
-        setIsPlaying(false);
-        // Fallback to text-to-speech
-        playTextToSpeech();
-      });
-    });
-
-    audio.addEventListener('ended', () => {
-      setIsPlaying(false);
-      setIsLoading(false);
-      stopImageSequenceTimer();
-      stopTimeUpdateTimer();
-      setCurrentTime(0);
-    });
-
-    audio.addEventListener('error', (e) => {
-      console.error('Audio file error:', e);
-      setIsLoading(false);
-      setIsPlaying(false);
-      stopImageSequenceTimer();
-      // Fallback to text-to-speech
-      playTextToSpeech();
-    });
-
-    // Start loading the audio
-    audio.load();
-  };
-
-  const startImageSequenceTimer = () => {
-    imageSequenceTimerRef.current = setInterval(() => {
-      if (audioRef.current && !audioRef.current.paused) {
-        const currentAudioTime = audioRef.current.currentTime;
-        setImageSequenceTime(currentAudioTime);
-        
-        // Find current image based on audio time
-        const currentImage = imageSequence.find(img => 
-          currentAudioTime >= img.startTime && currentAudioTime < (img.startTime + img.duration)
-        );
-        
-        if (currentImage) {
-          const newIndex = imageSequence.indexOf(currentImage);
-          setCurrentImageIndex(newIndex);
-        }
-      }
-    }, 100);
-  };
-
-  const stopImageSequenceTimer = () => {
-    if (imageSequenceTimerRef.current) {
-      clearInterval(imageSequenceTimerRef.current);
-      imageSequenceTimerRef.current = null;
-    }
-  };
-
-  const startTimeUpdateTimer = () => {
-    timeUpdateTimerRef.current = setInterval(() => {
-      if (audioRef.current && !audioRef.current.paused) {
-        setCurrentTime(audioRef.current.currentTime);
-      } else if (videoRef.current && !videoRef.current.paused) {
-        setCurrentTime(videoRef.current.currentTime);
-      }
-    }, 1000);
-  };
-
-  const stopTimeUpdateTimer = () => {
-    if (timeUpdateTimerRef.current) {
-      clearInterval(timeUpdateTimerRef.current);
-      timeUpdateTimerRef.current = null;
-    }
-  };
-
   const handleSeek = (seconds) => {
-    const currentMedia = audioRef.current || videoRef.current;
-    if (currentMedia) {
-      const newTime = Math.max(0, Math.min(currentMedia.duration, currentMedia.currentTime + seconds));
-      currentMedia.currentTime = newTime;
-      setCurrentTime(newTime);
-      
-      // Update image sequence to match new audio time
-      if (mediaType === 'imageSequence' && hasImageSequence) {
-        setImageSequenceTime(newTime);
-        
-        // Find the correct image for the new time
-        const currentImage = imageSequence.find(img => 
-          newTime >= img.startTime && newTime < (img.startTime + img.duration)
-        );
-        
-        if (currentImage) {
-          const newIndex = imageSequence.indexOf(currentImage);
-          setCurrentImageIndex(newIndex);
-        }
-      }
+    if (mediaType === 'video' && videoRef.current) {
+      const newTime = Math.max(0, Math.min(videoRef.current.duration, videoRef.current.currentTime + seconds));
+      videoRef.current.currentTime = newTime;
+    } else if (mediaType === 'imageSequence' || mediaType === 'audio') {
+      seekRelative(seconds);
     }
   };
 
   const handleSpeedChange = (rate) => {
-    setPlaybackRate(rate);
-    const currentMedia = audioRef.current || videoRef.current;
-    if (currentMedia) {
-      currentMedia.playbackRate = rate;
+    if (mediaType === 'video' && videoRef.current) {
+      videoRef.current.playbackRate = rate;
+    } else if (mediaType === 'imageSequence' || mediaType === 'audio') {
+      changePlaybackRate(rate);
     }
-    
-    // For TTS, we need to restart with new rate
-    if (mediaType === 'tts' && isPlaying) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(spot.audio_script);
-      utterance.lang = 'zh-CN';
-      utterance.rate = 0.8 * rate; // Base rate 0.8 * speed multiplier
-      
-      utterance.onstart = () => setIsPlaying(true);
-      utterance.onend = () => setIsPlaying(false);
-      utterance.onerror = () => setIsPlaying(false);
-      
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  const formatTime = (seconds) => {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const playVideo = () => {
-    if (!videoFile) {
-      console.log('No video file found, falling back to image sequence');
+    if (!hasVideo) {
       playImageSequence();
       return;
     }
 
-    setIsLoading(true);
     setVideoError(false);
     setMediaType('video');
 
     const video = videoRef.current;
     if (video) {
-      video.addEventListener('loadstart', () => {
-        setIsLoading(true);
-      });
-
+      video.playbackRate = playbackRate;
+      
       video.addEventListener('loadeddata', () => {
-        setIsLoading(false);
-        setIsPlaying(true);
-        
-        // Apply current playback rate
-        video.playbackRate = playbackRate;
-        
-        // Start time update timer
-        startTimeUpdateTimer();
-        
         video.play().catch(error => {
           console.error('Error playing video:', error);
           setVideoError(true);
-          setIsLoading(false);
-          setIsPlaying(false);
-          // Fallback to image sequence
           playImageSequence();
         });
       });
 
-      video.addEventListener('ended', () => {
-        setIsPlaying(false);
-        setIsLoading(false);
-        stopTimeUpdateTimer();
-        setCurrentTime(0);
-      });
-
-      video.addEventListener('error', (e) => {
-        console.error('Video file error:', e);
+      video.addEventListener('error', () => {
         setVideoError(true);
-        setIsLoading(false);
-        setIsPlaying(false);
-        // Fallback to image sequence
         playImageSequence();
       });
 
-      // Start loading the video
       video.load();
     }
   };
 
-  const playPreGeneratedAudio = () => {
-    if (!audioFile) {
-      console.log('No audio file found, falling back to text-to-speech');
-      playTextToSpeech();
+  const playImageSequence = () => {
+    if (!hasImageSequence || !hasAudio) {
+      playPreGeneratedAudio();
       return;
     }
 
-    setIsLoading(true);
-    setAudioError(false);
-    setMediaType('audio');
-
-    // Create new audio element
-    const audio = new Audio(audioFile);
-    audioRef.current = audio;
-
-    audio.addEventListener('loadstart', () => {
-      setIsLoading(true);
-    });
-
-    audio.addEventListener('loadedmetadata', () => {
-      // Capture real audio duration
-      setRealAudioDuration(audio.duration);
-    });
-
-    audio.addEventListener('loadeddata', () => {
-      setIsLoading(false);
-      setIsPlaying(true);
-      
-      // Apply current playback rate
-      audio.playbackRate = playbackRate;
-      
-      // Start time update timer
-      startTimeUpdateTimer();
-      
-      audio.play().catch(error => {
-        console.error('Error playing audio:', error);
-        setAudioError(true);
-        setIsLoading(false);
-        setIsPlaying(false);
-        // Fallback to text-to-speech
-        playTextToSpeech();
-      });
-    });
-
-    audio.addEventListener('ended', () => {
-      setIsPlaying(false);
-      setIsLoading(false);
-      stopTimeUpdateTimer();
-      setCurrentTime(0);
-    });
-
-    audio.addEventListener('error', (e) => {
-      console.error('Audio file error:', e);
-      setAudioError(true);
-      setIsLoading(false);
-      setIsPlaying(false);
-      // Fallback to text-to-speech
-      playTextToSpeech();
-    });
-
-    // Start loading the audio
-    audio.load();
+    setMediaType('imageSequence');
+    playAudio();
   };
 
-  const playTextToSpeech = () => {
-    if ('speechSynthesis' in window) {
-      // Stop any ongoing speech
-      window.speechSynthesis.cancel();
-      setMediaType('tts');
-      
-      const utterance = new SpeechSynthesisUtterance(spot.audio_script);
-      utterance.lang = 'zh-CN';
-      utterance.rate = 0.8;
-      
-      utterance.onstart = () => {
-        setIsPlaying(true);
-        setIsLoading(false);
-      };
-      utterance.onend = () => setIsPlaying(false);
-      utterance.onerror = () => setIsPlaying(false);
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      alert('您的浏览器不支持语音播放功能');
+  const playPreGeneratedAudio = () => {
+    if (!hasAudio) {
+      return;
     }
+
+    setMediaType('audio');
+    playAudio();
   };
 
   const toggleMedia = () => {
     if (isPlaying) {
-      // Pause current playback (keep current position)
+      // Pause current playback
       if (videoRef.current && mediaType === 'video') {
         videoRef.current.pause();
-        setIsPlaying(false);
-      } else if (audioRef.current && (mediaType === 'audio' || mediaType === 'imageSequence')) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-        if (mediaType === 'imageSequence') {
-          stopImageSequenceTimer();
-        }
-        stopTimeUpdateTimer();
-      } else if (mediaType === 'tts') {
-        window.speechSynthesis.cancel();
-        setIsPlaying(false);
+      } else if (mediaType === 'audio' || mediaType === 'imageSequence') {
+        pauseAudio();
       }
     } else {
       // Resume or start playback
       if (videoRef.current && mediaType === 'video') {
-        // Resume video from current position
-        videoRef.current.play().then(() => {
-          setIsPlaying(true);
-          startTimeUpdateTimer();
-        }).catch(error => {
-          console.error('Error resuming video:', error);
+        videoRef.current.play().catch(() => {
           playVideo(); // Fallback to restart if resume fails
         });
-      } else if (audioRef.current && (mediaType === 'audio' || mediaType === 'imageSequence')) {
-        // Check if audio has ended, if so restart from beginning
-        if (audioRef.current.ended) {
-          // Audio has ended, restart from beginning
-          if (mediaType === 'imageSequence') {
-            playImageSequence(); // This will reset image sequence to beginning
-          } else {
-            playPreGeneratedAudio(); // This will restart audio from beginning
-          }
-        } else {
-          // Resume audio from current position
-          audioRef.current.play().then(() => {
-            setIsPlaying(true);
-            if (mediaType === 'imageSequence') {
-              startImageSequenceTimer();
-            }
-            startTimeUpdateTimer();
-          }).catch(error => {
-            console.error('Error resuming audio:', error);
-            if (mediaType === 'imageSequence') {
-              playImageSequence(); // Fallback to restart if resume fails
-            } else {
-              playPreGeneratedAudio();
-            }
-          });
-        }
+      } else if (mediaType === 'audio' || mediaType === 'imageSequence') {
+        playAudio();
       } else {
-        // Start fresh playback - try video first, then image sequence, then audio, then TTS
+        // Start fresh playback - try video first, then image sequence, then audio
         if (hasVideo) {
           playVideo();
         } else if (hasImageSequence) {
@@ -399,7 +130,6 @@ function SpotDetail({ spot, onBack }) {
 
   // Auto-play media when component mounts
   useEffect(() => {
-    // Scroll to top when component mounts
     window.scrollTo(0, 0);
     
     const timer = setTimeout(() => {
@@ -412,25 +142,13 @@ function SpotDetail({ spot, onBack }) {
       }
     }, 800);
 
-    // Cleanup function
     return () => {
       clearTimeout(timer);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
       if (videoRef.current) {
         videoRef.current.pause();
       }
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-      stopImageSequenceTimer();
-      stopTimeUpdateTimer();
     };
   }, [spot]);
-
-
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -448,10 +166,7 @@ function SpotDetail({ spot, onBack }) {
               className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg bg-black"
               poster={spot.image_full || spot.image_thumb}
               onError={() => {
-                console.error('Video failed to load');
                 setVideoError(true);
-                setIsLoading(false);
-                setIsPlaying(false);
               }}
               onClick={toggleMedia}
             >
@@ -461,8 +176,8 @@ function SpotDetail({ spot, onBack }) {
           ) : hasImageSequence && mediaType === 'imageSequence' ? (
             <div className="relative">
               <img
-                src={imageSequence[currentImageIndex]?.image || spot.image_full || spot.image_thumb}
-                alt={imageSequence[currentImageIndex]?.description || spot.name}
+                src={imageSequence[currentImageIndex]?.img || spot.image_full || spot.image_thumb}
+                alt={imageSequence[currentImageIndex]?.notes || spot.name}
                 className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg cursor-pointer transition-opacity duration-500"
                 onError={(e) => {
                   e.target.src = spot.image_thumb || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name);
@@ -471,31 +186,28 @@ function SpotDetail({ spot, onBack }) {
               />
               {/* Image sequence progress indicator */}
               <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded-md text-xs">
-                {currentImageIndex + 1}/{imageSequence.length} - {imageSequence[currentImageIndex]?.description}
+                {currentImageIndex + 1}/{imageSequence.length} - {imageSequence[currentImageIndex]?.notes}
               </div>
               {/* Progress bar */}
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/30 rounded-b-xl">
                 <div 
                   className="h-full bg-blue-500 transition-all duration-100 rounded-bl-xl"
                   style={{
-                    width: `${((imageSequenceTime / realAudioDuration) * 100)}%`
+                    width: `${((currentTime / realAudioDuration) * 100)}%`
                   }}
                 ></div>
               </div>
             </div>
           ) : (
             <img
-              src={spot.image_full || spot.image_thumb}
+              src={spot.image_thumb || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name)}
               alt={spot.name}
               className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg cursor-pointer"
-              onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name);
-              }}
               onClick={toggleMedia}
             />
           )}
           
-          {/* Center Play/Pause Button Overlay - Only show when paused or on hover during playback */}
+          {/* Center Play/Pause Button Overlay */}
           <div 
             className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${
               !isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-80'
@@ -536,10 +248,15 @@ function SpotDetail({ spot, onBack }) {
                 <span className="text-xs opacity-80">
                   {hasVideo && mediaType === 'video' ? '🎬' : 
                    hasImageSequence && mediaType === 'imageSequence' ? '🖼️' :
-                   hasAudio && mediaType === 'audio' ? '🎵' : 
-                   mediaType === 'tts' ? '🔊' : '🎵'}
+                   hasAudio && mediaType === 'audio' ? '🎵' : '🎵'}
                 </span>
               </div>
+              {/* Show audio error if present */}
+              {audioError && (
+                <div className="text-red-300 text-xs mt-1">
+                  ⚠️ 音频加载失败
+                </div>
+              )}
             </div>
           )}
 
@@ -640,13 +357,6 @@ function SpotDetail({ spot, onBack }) {
             {spot.description || '暂无详细介绍'}
           </p>
         </div>
-
-        {/* Instructions */}
-        {/* <div className="mb-4 text-center bg-blue-50 rounded-xl p-3">
-          <p className="text-sm text-gray-600">
-            💡 提示：您可以随时点击"{hasVideo ? '播放视频讲解' : '播放讲解'}"按钮重新{hasVideo ? '观看' : '收听'}介绍
-          </p>
-        </div> */}
       </div>
 
       {/* Fixed Back Button at Bottom */}

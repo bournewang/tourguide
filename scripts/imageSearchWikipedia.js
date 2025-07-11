@@ -203,7 +203,7 @@ async function selectImage(spot, images) {
 async function main() {
     try {
         // Load spots data
-        const spotsDataPath = path.join(__dirname, '../src/data/spots-shaolinsi.json');
+        const spotsDataPath = path.join(__dirname, '../src/data/spots/shaolinsi.json');
         const spotsData = JSON.parse(fs.readFileSync(spotsDataPath, 'utf8'));
         
         console.log(`📖 Loaded ${spotsData.length} spots`);

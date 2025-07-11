@@ -1,143 +1,72 @@
 [
-    {
-        "name": "少林寺",
-        "bounds": {
-            "sw": {
-                "lat": 34.489108,
-                "lng": 112.925137
-            },
-            "ne": {
-                "lat": 34.522121,
-                "lng": 112.976704
-            }
-        },
-        "spotsFile": "spots/shaolinsi.json"
+  {
+    "name": "少林寺",
+    "bounds": {
+      "sw": {
+        "lat": 34.489108,
+        "lng": 112.925137
+      },
+      "ne": {
+        "lat": 34.522121,
+        "lng": 112.976704
+      }
     },
-    {
-        "name": "少室山/三皇寨",
-        "bounds": {
-            "sw": {
-                "lat": 34.456172,
-                "lng": 112.915278
-            },
-            "ne": {
-                "lat": 34.488364,
-                "lng": 112.970685
-            }
-        },
-        "spotsFile": "spots/shaoshishan.json"
+    "spotsFile": "spots/shaolinsi.json"
+  },
+  {
+    "name": "嵩山",
+    "bounds": {
+      "sw": {
+        "lat": 34.488294,
+        "lng": 113.035336
+      },
+      "ne": {
+        "lat": 34.522422,
+        "lng": 113.075212
+      }
     },
-    {
-        "name": "太室山/嵩山景区",
-        "bounds": {
-            "sw": {
-                "lat": 34.489402,
-                "lng": 113.038992
-            },
-            "ne": {
-                "lat": 34.522422,
-                "lng": 113.075212
-            }
-        },
-        "spotsFile": "spots/taishishan.json"
-    },    
-    {
-        "name": "嵩阳书院",
-        "bounds": {
-            "sw": {
-                "lat": 34.484746,
-                "lng": 113.036764
-            },
-            "ne": {
-                "lat": 34.488681,
-                "lng": 113.043592
-            }
-        },
-        "spotsFile": "spots/songyangshuyuan.json"
+    "spotsFile": "spots/taishishan.json"
+  },
+  {
+    "name": "嵩阳书院",
+    "bounds": {
+      "sw": {
+        "lat": 34.484746,
+        "lng": 113.036764
+      },
+      "ne": {
+        "lat": 34.488163,
+        "lng": 113.043592
+      }
     },
-    {
-        "name": "会善寺",
-        "bounds": {
-            "sw": {
-                "lat": 34.495358,
-                "lng": 113.00708
-            },
-            "ne": {
-                "lat": 34.499694,
-                "lng": 113.015219
-            }
-        },
-        "spotsFile": "spots/huishansi.json"
+    "spotsFile": "spots/songyangshuyuan.json"
+  },
+  {
+    "name": "会善寺",
+    "bounds": {
+      "sw": {
+        "lat": 34.495358,
+        "lng": 113.00708
+      },
+      "ne": {
+        "lat": 34.499694,
+        "lng": 113.015219
+      }
     },
-    {
-        "name": "法王寺",
-        "bounds": {
-            "sw": {
-                "lat": 34.507589,
-                "lng": 113.030993
-            },
-            "ne": {
-                "lat": 34.513092,
-                "lng": 113.038395
-            }
-        },
-        "spotsFile": "spots/fawangsi.json"
+    "spotsFile": "spots/huishansi.json"
+  },
+  {
+    "name": "中岳庙",
+    "bounds": {
+      "sw": {
+        "lat": 34.452175,
+        "lng": 113.074327
+      },
+      "ne": {
+        "lat": 34.475093,
+        "lng": 113.090856
+      }
     },
-    {
-        "name": "嵩岳寺",
-        "bounds": {
-            "sw": {
-                "lat": 34.504318,
-                "lng": 113.026757
-            },
-            "ne": {
-                "lat": 34.507589,
-                "lng": 113.030993
-            }
-        },
-        "spotsFile": "spots/songyuesi.json"
-    },
-    {
-        "name": "永泰寺",
-        "bounds": {
-            "sw": {
-                "lat": 34.523563,
-                "lng": 112.982651
-            },
-            "ne": {
-                "lat": 34.528798,
-                "lng": 112.991382
-            }
-        },
-        "spotsFile": "spots/yongtaisi.json"
-    },
-    {
-        "name": "中岳庙",
-        "bounds": {
-            "sw": {
-                "lat": 34.452175,
-                "lng": 113.074327
-            },
-            "ne": {
-                "lat": 34.475093,
-                "lng": 113.090856
-            }
-        },
-        "spotsFile": "spots/zhongyuemiao.json"
-    },
-    {
-        "name": "观星台",
-        "bounds": {
-            "sw": {
-                "lat": 34.400722,
-                "lng": 113.144516
-            },
-            "ne": {
-                "lat": 34.415107,
-                "lng": 113.165393
-            }
-
-        },
-        "spotsFile": "spots/guanxingtai.json"
-    }
+    "spotsFile": "spots/zhongyuemiao.json"
+  }
 ]

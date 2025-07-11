@@ -1,0 +1,31 @@
+name = "tourguide-backend"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# Environment variables (set these in Cloudflare dashboard or via wrangler secret)
+[vars]
+AZURE_SPEECH_REGION = "eastasia"
+
+# R2 bucket for audio files
+[[r2_buckets]]
+binding = "AUDIO_BUCKET"
+bucket_name = "tts-audio"
+preview_bucket_name = "tourguide-audio-preview"
+
+# KV namespace for spot data
+[[kv_namespaces]]
+binding = "SPOT_DATA"
+id = "cd9e38b172f94d87a138b3caacac299d"
+preview_id = "cd9e38b172f94d87a138b3caacac299d"
+
+# Secrets to set via: wrangler secret put <SECRET_NAME>
+# AZURE_SPEECH_KEY
+# DASHSCOPE_API_KEY
+
+# Local development configuration
+[env.development]
+vars = { AZURE_SPEECH_REGION = "eastasia" }
+
+# Production configuration  
+[env.production]
+vars = { AZURE_SPEECH_REGION = "eastasia" } 

@@ -1,18 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useTargetArea } from './hooks/useTargetArea';
-import { baiduToWgs84, calculateDistance, formatDistance } from './utils/coordinateUtils';
+import { wgs84ToBaidu, calculateDistance, formatDistance } from './utils/coordinateUtils';
+import { ttsService } from './utils/ttsService';
 
 function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
-  const { currentTargetArea, userLocation } = useTargetArea();
+  const { currentTargetArea, userLocation, scenicAreas, setTargetArea } = useTargetArea();
   const [spots, setSpots] = useState([]);
   const [spotsWithDistance, setSpotsWithDistance] = useState([]);
+  const [userLocationBD, setUserLocationBD] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [cacheStatus, setCacheStatus] = useState(null);
+  
+  // Fallback: if no currentTargetArea after 3 seconds, show error
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!currentTargetArea && scenicAreas.length > 0) {
+        console.log('SpotList: Timeout - no currentTargetArea set, but scenic areas loaded. This might be a bug.');
+        setLoading(false);
+      }
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, [currentTargetArea, scenicAreas]);
 
   // Load spots based on current target area
   useEffect(() => {
     const loadSpots = async () => {
+      console.log('SpotList: loadSpots called, currentTargetArea:', currentTargetArea);
+      
       if (!currentTargetArea) {
+        console.log('SpotList: No currentTargetArea, staying in loading state');
         setLoading(true);
         return;
       }
@@ -21,25 +39,30 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
         setLoading(true);
         console.log('Loading spots for target area:', currentTargetArea);
         
-        // Use spotsFile directly from currentTargetArea
-        if (!currentTargetArea.spotsFile) {
-          console.error('No spotsFile found for area:', currentTargetArea.name);
-          setSpots([]);
-          setLoading(false);
-          return;
-        }
+        // Load spots from Cloudflare API
+        try {
+          const spotsData = await ttsService.getSpotData(currentTargetArea.name);
+          console.log(`🎯 NORMAL MODE: Loaded ${spotsData.length} spots from Cloudflare for ${currentTargetArea.name}`);
+          
+          // Filter spots to only include those with tour guide content and display: "show"
+          // simplify this filter into one line to only include spots with display: "show"
+          const tourGuideSpots = spotsData.filter(spot => spot.name && spot.display !== "hide");
 
-        const response = await fetch(`/src/data/${currentTargetArea.spotsFile}`);
-        const spotsData = await response.json();
-        
-        // Filter spots to only include those with tour guide content
-        const tourGuideSpots = spotsData.filter(spot => spot.name);
-        
-        console.log(`Loaded ${tourGuideSpots.length} spots for ${currentTargetArea.name}`);
-        setSpots(tourGuideSpots);
-        
-        // Initialize spots with distance
-        setSpotsWithDistance(tourGuideSpots.map(spot => ({ ...spot, distance: null })));
+          console.log(`🎯 NORMAL MODE: Loaded ${tourGuideSpots.length} visible spots for ${currentTargetArea.name} (${spotsData.length - tourGuideSpots.length} hidden)`);
+          setSpots(tourGuideSpots);
+          
+          // Initialize spots with distance
+          setSpotsWithDistance(tourGuideSpots.map(spot => ({ ...spot, distance: null })));
+          
+          // Update cache status
+          const status = ttsService.getCacheStatus();
+          setCacheStatus(status);
+          
+        } catch (error) {
+          console.error('Failed to load spots from Cloudflare:', error);
+          setSpots([]);
+          setSpotsWithDistance([]);
+        }
         
       } catch (error) {
         console.error('Failed to load spots:', error);
@@ -58,12 +81,16 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
     if (userLocation && spots.length > 0) {
       console.log('Calculating distances for spots');
       
+      // Convert user location from WGS-84 to Baidu for consistent coordinate system
+      const userLocationBaidu = wgs84ToBaidu(userLocation.lat, userLocation.lng);
+      setUserLocationBD(userLocationBaidu);
+      console.log('User location converted to Baidu:', userLocationBaidu.lng, userLocationBaidu.lat);
+      
       const spotsWithDist = spots.map(spot => {
-        // Convert Baidu coordinates to WGS84 for distance calculation
-        const wgs84Coords = baiduToWgs84(spot.location.lat, spot.location.lng);
+        // Both user location and spot coordinates are now in Baidu format
         return {
           ...spot,
-          distance: calculateDistance(userLocation.lat, userLocation.lng, wgs84Coords.lat, wgs84Coords.lng)
+          distance: calculateDistance(userLocationBaidu.lat, userLocationBaidu.lng, spot.location.lat, spot.location.lng)
         };
       }).sort((a, b) => a.distance - b.distance);
 
@@ -88,6 +115,40 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">正在加载景点数据...</p>
+            {!currentTargetArea && (
+              <p className="text-sm text-gray-500 mt-2">
+                等待景区数据加载... {scenicAreas.length > 0 ? '(景区已加载，等待选择)' : '(正在加载景区)'}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if scenic areas loaded but no target area set
+  if (!currentTargetArea && scenicAreas.length > 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-4">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="text-center py-8">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">无法确定当前景区</h2>
+            <p className="text-gray-600 mb-4">系统已加载 {scenicAreas.length} 个景区，但未能自动选择当前景区</p>
+            <div className="space-y-2">
+              {scenicAreas.map((area, index) => (
+                <button
+                  key={index}
+                                     onClick={() => {
+                     console.log('Manually selecting area:', area.name);
+                     setTargetArea(area);
+                   }}
+                  className="block w-full max-w-sm mx-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  选择 {area.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -135,11 +196,12 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
             </p>
           </div>
         ) : userLocation ? (
-          <div className="bg-green-50 rounded-xl p-3 mb-4 text-center shadow-sm">
-            <p className="text-sm text-green-600 font-medium">
-              ✅ 已获取您的位置，按距离远近排序
-            </p>
-          </div>
+          <></>
+          // <div className="bg-green-50 rounded-xl p-3 mb-4 text-center shadow-sm">
+          //   <p className="text-sm text-green-600 font-medium">
+          //     ✅ 已获取您的位置，按距离远近排序 
+          //   </p>
+          // </div>
         ) : (
           <div className="bg-yellow-50 rounded-xl p-3 mb-4 text-center shadow-sm">
             <p className="text-sm text-yellow-600">
@@ -158,11 +220,11 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
                 onClick={() => onSpotClick && onSpotClick(spot)}
               >
                 <img
-                  src={spot.image_thumb}
+                  src={spot.image_thumb || '/spot-default.jpg'}
                   alt={spot.name}
                   className="w-16 h-16 object-cover rounded-lg"
                   onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/64x64/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name);
+                    e.target.src = '/spot-default.jpg';
                   }}
                 />
                 <div className="flex-1">
@@ -191,6 +253,23 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
           <p className="text-sm text-gray-600">
             👆 点击任意景点查看详情和听取讲解
           </p>
+          
+          {/* Cache Status Indicator */}
+          {cacheStatus && (
+            <div className="mt-2 text-xs text-gray-500">
+              💾 缓存状态: {cacheStatus.validEntries}/{cacheStatus.totalEntries} 条有效
+              {cacheStatus.totalSize > 0 && (
+                <span className="ml-2">
+                  ({Math.round(cacheStatus.totalSize / 1024)}KB)
+                </span>
+              )}
+            </div>
+          )}
+
+
+          {userLocationBD && <p className="text-xs text-gray-500">
+              {userLocationBD.lng.toFixed(6)}°, {userLocationBD.lat.toFixed(6)}°
+            </p>}
         </div>
       </div>
     </div>
