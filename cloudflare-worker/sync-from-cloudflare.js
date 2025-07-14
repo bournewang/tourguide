@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 const WORKER_URL = 'https://worker.qingfan.org';
 
 // Local data paths
-const LOCAL_DATA_DIR = path.join(__dirname, '../src/data');
+const LOCAL_DATA_DIR = path.join(__dirname, '../public/data');
 const LOCAL_SPOTS_DIR = path.join(LOCAL_DATA_DIR, 'spots');
 const LOCAL_SCENIC_AREAS_FILE = path.join(LOCAL_DATA_DIR, 'scenic-area.json');
 const LOCAL_AUDIO_DIR = path.join(__dirname, '../public/audio');
@@ -120,10 +120,17 @@ function extractAudioFileNames(spotsData) {
   
   for (const spot of spotsData) {
     if (spot.audioFile) {
-      // Extract filename from URL like "/api/audio/filename.mp3"
-      const match = spot.audioFile.match(/\/api\/audio\/(.+)$/);
+      // Handle both formats: "/api/audio/filename.mp3" and "/audio/filename.mp3"
+      let match = spot.audioFile.match(/\/(?:api\/)?audio\/(.+)$/);
       if (match) {
         audioFiles.add(decodeURIComponent(match[1]));
+      }
+      // Also handle full URLs like "https://worker.qingfan.org/api/audio/filename.mp3"
+      else if (spot.audioFile.includes('/api/audio/')) {
+        match = spot.audioFile.match(/\/api\/audio\/(.+)$/);
+        if (match) {
+          audioFiles.add(decodeURIComponent(match[1]));
+        }
       }
     }
   }

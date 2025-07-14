@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useHowlerAudio } from './hooks/useHowlerAudio';
+import { dataService } from './utils/dataService';
 
 function SpotDetail({ spot, onBack }) {
   const [videoError, setVideoError] = useState(false);
@@ -8,7 +9,7 @@ function SpotDetail({ spot, onBack }) {
   const videoRef = useRef(null);
 
   // Get media files directly from spot data
-  const audioFile = spot.audioFile || null;
+  const audioFile = dataService.resolveAudioUrl(spot.audioFile);
   const videoFile = spot.videoFile ? `/video/${spot.videoFile}` : null;
   const imageSequence = spot.imageSequence || null;
 

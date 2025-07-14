@@ -34,6 +34,15 @@ function updatePathsInJson(filePath) {
           updated = true;
         }
         
+        // Also handle full worker URLs and convert them to /audio/ format
+        if (spot.audioFile && spot.audioFile.includes('/api/audio/')) {
+          const match = spot.audioFile.match(/\/api\/audio\/(.+)$/);
+          if (match) {
+            spot.audioFile = `/audio/${match[1]}`;
+            updated = true;
+          }
+        }
+        
         // Update imageSequence paths if needed
         if (spot.imageSequence && Array.isArray(spot.imageSequence)) {
           for (const image of spot.imageSequence) {

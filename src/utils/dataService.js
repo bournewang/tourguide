@@ -168,28 +168,7 @@ export const dataService = {
         spotData = await response.json();
         console.log(`✅ Static spot data loaded successfully from ${spotFileName}`);
         
-        // For static data, audio files need to be converted from API paths to static paths
-        const spotsWithAudioPaths = spotData.map(spot => {
-          if (spot.audioFile && !spot.audioFile.startsWith('http')) {
-            let audioFile = spot.audioFile;
-            
-            // Convert /api/audio/ to /audio/ for static serving
-            if (audioFile.startsWith('/api/audio/')) {
-              audioFile = audioFile.replace('/api/audio/', '/audio/');
-            } else if (!audioFile.startsWith('/')) {
-              // Convert relative path to absolute path for static serving
-              audioFile = `/${audioFile}`;
-            }
-            
-            return {
-              ...spot,
-              audioFile
-            };
-          }
-          return spot;
-        });
-        
-        spotData = spotsWithAudioPaths;
+        // Audio URLs remain as-is (/audio/xxx.mp3 format)
       } else {
         console.log(`🌐 Fetching spot data for ${areaName} from API...`);
         const response = await fetch(`${API_BASE}/api/spots?area=${encodeURIComponent(areaName)}`);
@@ -202,24 +181,13 @@ export const dataService = {
         spotData = await response.json();
         console.log('✅ API spot data loaded successfully');
         
-        // For API data, convert relative audioFile paths to full URLs
-        const spotsWithFullAudioUrls = spotData.map(spot => {
-          if (spot.audioFile && !spot.audioFile.startsWith('http')) {
-            return {
-              ...spot,
-              audioFile: `${API_BASE}${spot.audioFile}`
-            };
-          }
-          return spot;
-        });
-        
-        spotData = spotsWithFullAudioUrls;
+        // Audio URLs remain as-is (/audio/xxx.mp3 format)
       }
       
       // Cache the result
       cacheService.set(cacheKey, spotData);
       console.log(`💾 Spot data for ${areaName} cached successfully (${dataSource})`);
-      
+        
       return spotData;
     } catch (error) {
       console.error(`Failed to get spot data for ${areaName} (${dataSource}):`, error);
@@ -247,5 +215,23 @@ export const dataService = {
   // Get cache status
   getCacheStatus() {
     return cacheService.getStatus();
+  },
+
+  // Resolve audio URL based on current mode
+  resolveAudioUrl(audioFile) {
+    if (!audioFile) return null;
+    
+    const dataSource = getDataSource();
+    
+    // In development/API mode, prepend worker base URL + /api
+    if (dataSource === 'api') {
+      // audioFile is like "/audio/filename.mp3", we need "https://worker.qingfan.org/api/audio/filename.mp3"
+      if (audioFile.startsWith('/audio/')) {
+        return `${API_BASE}/api${audioFile}`;
+      }
+    }
+    
+    // In static/production mode, use as-is (served from public/audio/)
+    return audioFile;
   }
-}; 
+};
