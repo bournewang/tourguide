@@ -15,49 +15,7 @@ const STATIC_PATHS = {
 };
 
 // Cache for scenic areas data to avoid repeated fetches
-let scenicAreasCache = null;
-
-// Helper to get spot file name from area name using scenic-areas.json
-async function getSpotFileName(areaName) {
-  try {
-    console.log('-----------getSpotFileName', areaName);
-    // Get scenic areas data (with caching) - respect static/API mode
-    if (!scenicAreasCache) {
-      const dataSource = getDataSource();
-
-      console.log('dataSource', dataSource);
-      
-      if (dataSource === 'static') {
-        console.log('STATIC_PATHS.scenicAreas', STATIC_PATHS.scenicAreas);
-        const response = await fetch(STATIC_PATHS.scenicAreas);
-        if (response.ok) {
-          scenicAreasCache = await response.json();
-        }
-      } else {
-        console.log('fetch ', `${API_BASE}/api/scenic-areas`);
-        const response = await fetch(`${API_BASE}/api/scenic-areas`);
-        if (response.ok) {
-          scenicAreasCache = await response.json();
-        }
-      }
-    }
-    
-    if (scenicAreasCache) {
-      const area = scenicAreasCache.find(area => area.name === areaName);
-      if (area && area.spotsFile) {
-        // Extract filename from spotsFile path (e.g., "spots/shaolinsi.json" -> "shaolinsi.json")
-        return area.spotsFile.replace('spots/', '');
-      }
-    }
-    
-    // Fallback to area name if not found
-    console.warn(`No spotsFile found for area: ${areaName}, using fallback`);
-    return `${areaName}.json`;
-  } catch (error) {
-    console.error('Error getting spot file name:', error);
-    return `${areaName}.json`;
-  }
-}
+let _scenicAreasCache = null;
 
 // Determine data source based on environment
 export const getDataSource = () => {
@@ -93,7 +51,7 @@ export const dataService = {
     if (cachedData) {
       console.log(`📋 Using cached scenic areas data (${dataSource})`);
       // Update in-memory cache as well
-      scenicAreasCache = cachedData;
+      _scenicAreasCache = cachedData;
       return cachedData;
     }
     
@@ -128,7 +86,7 @@ export const dataService = {
       console.log(`💾 Scenic areas cached successfully (${dataSource})`);
       
       // Update in-memory cache as well
-      scenicAreasCache = areaData;
+      _scenicAreasCache = areaData;
       
       return areaData;
     } catch (error) {
@@ -155,9 +113,17 @@ export const dataService = {
       if (dataSource === 'static') {
         console.log(`🗂️ Fetching spot data for ${areaName} from static file...`);
         
-        // Get the correct filename from scenic-areas.json
-        const spotFileName = await getSpotFileName(areaName);
-        const spotFilePath = `/data/spots/${spotFileName}`;
+        // Get spotfile path from scenic areas data
+        const scenicAreas = await dataService.getScenicAreas();
+        console.log('scenicAreas', scenicAreas);
+        const area = scenicAreas.find(area => area.name === areaName);
+        if (!area) {
+          throw new Error(`Area ${areaName} not found in scenic areas data`);
+        }
+        
+        // For Kaifeng data, the spots files are in kaifeng/ directory
+        const spotFilePath = `/data/${area.spotsFile}`;
+        console.log('spotFilePath', spotFilePath);
         
         const response = await fetch(spotFilePath);
         
@@ -165,8 +131,21 @@ export const dataService = {
           throw new Error(`Static file error (${response.status}): ${response.statusText}`);
         }
         
-        spotData = await response.json();
-        console.log(`✅ Static spot data loaded successfully from ${spotFileName}`);
+        const rawData = await response.json();
+        console.log(`✅ Static spot data loaded successfully from ${spotFilePath}`);
+        
+        // Handle different data structures
+        if (rawData.results && Array.isArray(rawData.results)) {
+          // Kaifeng format: { results: [...] }
+          spotData = rawData.results;
+          console.log(`📋 Extracted ${spotData.length} spots from results array`);
+        } else if (Array.isArray(rawData)) {
+          // Direct array format
+          spotData = rawData;
+          console.log(`📋 Using direct array with ${spotData.length} spots`);
+        } else {
+          throw new Error(`Unknown spot data format: ${typeof rawData}`);
+        }
         
         // Audio URLs remain as-is (/audio/xxx.mp3 format)
       } else {
@@ -209,7 +188,7 @@ export const dataService = {
   clearCache() {
     cacheService.clear();
     // Also clear in-memory cache
-    scenicAreasCache = null;
+    _scenicAreasCache = null;
   },
 
   // Get cache status
