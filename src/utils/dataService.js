@@ -9,9 +9,12 @@ const forceStatic = import.meta.env.VITE_USE_STATIC_DATA === 'true';
 // API configuration
 const API_BASE = import.meta.env.VITE_WORKER_URL || 'https://worker.qingfan.org';
 
+const DATA_PATH = '/data';
+const SCENIC_AREA_FILE = 'scenic-area-kaifeng.json';
+
 // Static data paths
 const STATIC_PATHS = {
-  scenicAreas: '/data/scenic-area.json'
+  scenicAreas: `${DATA_PATH}/${SCENIC_AREA_FILE}`
 };
 
 // Cache for scenic areas data to avoid repeated fetches
@@ -20,21 +23,21 @@ let _scenicAreasCache = null;
 // Determine data source based on environment
 export const getDataSource = () => {
   if (forceStatic) {
-    console.log('🗂️ Using STATIC data (forced by VITE_USE_STATIC_DATA)');
+    //console.log('🗂️ Using STATIC data (forced by VITE_USE_STATIC_DATA)');
     return 'static';
   }
   
   if (isDevelopment) {
-    console.log('🔧 Using API data (development mode)');
+    //console.log('🔧 Using API data (development mode)');
     return 'api';
   }
   
   if (isProduction) {
-    console.log('🗂️ Using STATIC data (production mode)');
+    //console.log('🗂️ Using STATIC data (production mode)');
     return 'static';
   }
   
-  console.log('🗂️ Using STATIC data (fallback)');
+  //console.log('🗂️ Using STATIC data (fallback)');
   return 'static';
 };
 
@@ -49,7 +52,7 @@ export const dataService = {
     // Try cache first
     const cachedData = cacheService.get(cacheKey);
     if (cachedData) {
-      console.log(`📋 Using cached scenic areas data (${dataSource})`);
+      //console.log(`📋 Using cached scenic areas data (${dataSource})`);
       // Update in-memory cache as well
       _scenicAreasCache = cachedData;
       return cachedData;
@@ -59,7 +62,7 @@ export const dataService = {
       let areaData;
       
       if (dataSource === 'static') {
-        console.log('🗂️ Fetching scenic areas from static file...');
+        //console.log('🗂️ Fetching scenic areas from static file...');
         const response = await fetch(STATIC_PATHS.scenicAreas);
         
         if (!response.ok) {
@@ -67,9 +70,9 @@ export const dataService = {
         }
         
         areaData = await response.json();
-        console.log('✅ Static scenic areas loaded successfully');
+        //console.log('✅ Static scenic areas loaded successfully');
       } else {
-        console.log('🌐 Fetching scenic areas from API...');
+        //console.log('🌐 Fetching scenic areas from API...');
         const response = await fetch(`${API_BASE}/api/scenic-areas`);
         
         if (!response.ok) {
@@ -78,19 +81,19 @@ export const dataService = {
         }
         
         areaData = await response.json();
-        console.log('✅ API scenic areas loaded successfully');
+        //console.log('✅ API scenic areas loaded successfully');
       }
       
       // Cache the result
       cacheService.set(cacheKey, areaData);
-      console.log(`💾 Scenic areas cached successfully (${dataSource})`);
+      //console.log(`💾 Scenic areas cached successfully (${dataSource})`);
       
       // Update in-memory cache as well
       _scenicAreasCache = areaData;
       
       return areaData;
     } catch (error) {
-      console.error(`Failed to get scenic areas (${dataSource}):`, error);
+      //console.error(`Failed to get scenic areas (${dataSource}):`, error);
       throw new Error(`Failed to get scenic areas: ${error.message}`);
     }
   },
@@ -103,7 +106,7 @@ export const dataService = {
     // Try cache first
     const cachedData = cacheService.get(cacheKey);
     if (cachedData) {
-      console.log(`📋 Using cached spot data for ${areaName} (${dataSource})`);
+      //console.log(`📋 Using cached spot data for ${areaName} (${dataSource})`);
       return cachedData;
     }
     
@@ -111,19 +114,19 @@ export const dataService = {
       let spotData;
       
       if (dataSource === 'static') {
-        console.log(`🗂️ Fetching spot data for ${areaName} from static file...`);
+        //console.log(`🗂️ Fetching spot data for ${areaName} from static file...`);
         
         // Get spotfile path from scenic areas data
         const scenicAreas = await dataService.getScenicAreas();
-        console.log('scenicAreas', scenicAreas);
+        //console.log('scenicAreas', scenicAreas);
         const area = scenicAreas.find(area => area.name === areaName);
         if (!area) {
           throw new Error(`Area ${areaName} not found in scenic areas data`);
         }
         
-        // For Kaifeng data, the spots files are in kaifeng/ directory
-        const spotFilePath = `/data/${area.spotsFile}`;
-        console.log('spotFilePath', spotFilePath);
+        // For Kaifeng data, the spots files are in directory
+        const spotFilePath = `${DATA_PATH}/${area.spotsFile}`;
+        //console.log('spotFilePath', spotFilePath);
         
         const response = await fetch(spotFilePath);
         
@@ -132,24 +135,24 @@ export const dataService = {
         }
         
         const rawData = await response.json();
-        console.log(`✅ Static spot data loaded successfully from ${spotFilePath}`);
+        //console.log(`✅ Static spot data loaded successfully from ${spotFilePath}`);
         
         // Handle different data structures
         if (rawData.results && Array.isArray(rawData.results)) {
           // Kaifeng format: { results: [...] }
           spotData = rawData.results;
-          console.log(`📋 Extracted ${spotData.length} spots from results array`);
+          //console.log(`📋 Extracted ${spotData.length} spots from results array`);
         } else if (Array.isArray(rawData)) {
           // Direct array format
           spotData = rawData;
-          console.log(`📋 Using direct array with ${spotData.length} spots`);
+          //console.log(`📋 Using direct array with ${spotData.length} spots`);
         } else {
           throw new Error(`Unknown spot data format: ${typeof rawData}`);
         }
         
         // Audio URLs remain as-is (/audio/xxx.mp3 format)
       } else {
-        console.log(`🌐 Fetching spot data for ${areaName} from API...`);
+        //console.log(`🌐 Fetching spot data for ${areaName} from API...`);
         const response = await fetch(`${API_BASE}/api/spots?area=${encodeURIComponent(areaName)}`);
         
         if (!response.ok) {
@@ -158,18 +161,18 @@ export const dataService = {
         }
         
         spotData = await response.json();
-        console.log('✅ API spot data loaded successfully');
+        //console.log('✅ API spot data loaded successfully');
         
         // Audio URLs remain as-is (/audio/xxx.mp3 format)
       }
       
       // Cache the result
       cacheService.set(cacheKey, spotData);
-      console.log(`💾 Spot data for ${areaName} cached successfully (${dataSource})`);
+      //console.log(`💾 Spot data for ${areaName} cached successfully (${dataSource})`);
         
       return spotData;
     } catch (error) {
-      console.error(`Failed to get spot data for ${areaName} (${dataSource}):`, error);
+      //console.error(`Failed to get spot data for ${areaName} (${dataSource}):`, error);
       throw new Error(`Failed to get spot data: ${error.message}`);
     }
   },
