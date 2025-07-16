@@ -173,6 +173,106 @@ async function getScenicAreaData(env) {
   return data ? JSON.parse(data) : [];
 }
 
+// NFC Device Access Management Functions
+
+// Store device fingerprint for a UID
+async function storeDeviceAccess(uid, deviceFingerprint, env) {
+  const key = `nfc_devices:${uid}`;
+  
+  // Get existing device list
+  const existingData = await env.SPOT_DATA.get(key);
+  const devices = existingData ? JSON.parse(existingData) : [];
+  
+  // Check if device already exists
+  const existingDevice = devices.find(d => d.fingerprint === deviceFingerprint);
+  
+  if (existingDevice) {
+    // Update last access time
+    existingDevice.lastAccess = Date.now();
+    existingDevice.accessCount = (existingDevice.accessCount || 0) + 1;
+  } else {
+    // Add new device
+    devices.push({
+      fingerprint: deviceFingerprint,
+      firstAccess: Date.now(),
+      lastAccess: Date.now(),
+      accessCount: 1
+    });
+  }
+  
+  // Store updated device list
+  await env.SPOT_DATA.put(key, JSON.stringify(devices));
+  
+  return {
+    success: true,
+    deviceCount: devices.length,
+    isNewDevice: !existingDevice
+  };
+}
+
+// Get device access info for a UID
+async function getDeviceAccess(uid, env) {
+  const key = `nfc_devices:${uid}`;
+  const data = await env.SPOT_DATA.get(key);
+  return data ? JSON.parse(data) : [];
+}
+
+// Check if device can access UID (within device limit)
+async function checkDeviceLimit(uid, deviceFingerprint, maxDevices = 3, env) {
+  const devices = await getDeviceAccess(uid, env);
+  
+  // Check if this device is already registered
+  const existingDevice = devices.find(d => d.fingerprint === deviceFingerprint);
+  
+  if (existingDevice) {
+    return {
+      allowed: true,
+      reason: 'existing_device',
+      deviceCount: devices.length
+    };
+  }
+  
+  // Check if we're under the device limit
+  if (devices.length < maxDevices) {
+    return {
+      allowed: true,
+      reason: 'under_limit',
+      deviceCount: devices.length
+    };
+  }
+  
+  return {
+    allowed: false,
+    reason: 'device_limit_exceeded',
+    deviceCount: devices.length,
+    maxDevices: maxDevices
+  };
+}
+
+// Clean up old device access records (optional maintenance)
+async function cleanupOldDevices(uid, maxAge = 30 * 24 * 60 * 60 * 1000, env) {
+  const devices = await getDeviceAccess(uid, env);
+  const cutoffTime = Date.now() - maxAge; // 30 days ago
+  
+  const activeDevices = devices.filter(d => d.lastAccess > cutoffTime);
+  
+  if (activeDevices.length !== devices.length) {
+    const key = `nfc_devices:${uid}`;
+    await env.SPOT_DATA.put(key, JSON.stringify(activeDevices));
+    
+    return {
+      cleaned: true,
+      removedCount: devices.length - activeDevices.length,
+      remainingCount: activeDevices.length
+    };
+  }
+  
+  return {
+    cleaned: false,
+    remainingCount: devices.length
+  };
+}
+
 // Generate narration using QWen AI
 async function generateNarration(spotInfo, env) {
   const apiKey = env.DASHSCOPE_API_KEY;
@@ -430,6 +530,93 @@ async function handleRequest(request, env) {
         await storeScenicAreaData(areaData, env);
         
         return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // NFC Device Access API
+      if (path === '/api/nfc/validate' && method === 'POST') {
+        const body = await request.json();
+        const { uid, deviceFingerprint, maxDevices = 3 } = body;
+        
+        if (!uid || !deviceFingerprint) {
+          return new Response(JSON.stringify({ error: 'Missing uid or deviceFingerprint' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Check device limit
+        const limitCheck = await checkDeviceLimit(uid, deviceFingerprint, maxDevices, env);
+        
+        if (!limitCheck.allowed) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Device limit exceeded',
+            reason: limitCheck.reason,
+            deviceCount: limitCheck.deviceCount,
+            maxDevices: limitCheck.maxDevices
+          }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Store device access
+        const storeResult = await storeDeviceAccess(uid, deviceFingerprint, env);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          deviceCount: storeResult.deviceCount,
+          isNewDevice: storeResult.isNewDevice,
+          reason: limitCheck.reason
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Get device access info for debugging/analytics
+      if (path === '/api/nfc/devices' && method === 'GET') {
+        const uid = url.searchParams.get('uid');
+        
+        if (!uid) {
+          return new Response(JSON.stringify({ error: 'Missing uid parameter' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const devices = await getDeviceAccess(uid, env);
+        
+        return new Response(JSON.stringify({
+          uid: uid,
+          deviceCount: devices.length,
+          devices: devices.map(d => ({
+            fingerprint: d.fingerprint.substring(0, 8) + '...', // Mask for privacy
+            firstAccess: d.firstAccess,
+            lastAccess: d.lastAccess,
+            accessCount: d.accessCount
+          }))
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Cleanup old devices (maintenance endpoint)
+      if (path === '/api/nfc/cleanup' && method === 'POST') {
+        const body = await request.json();
+        const { uid, maxAge } = body;
+        
+        if (!uid) {
+          return new Response(JSON.stringify({ error: 'Missing uid parameter' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const cleanupResult = await cleanupOldDevices(uid, maxAge, env);
+        
+        return new Response(JSON.stringify(cleanupResult), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }

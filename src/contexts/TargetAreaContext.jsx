@@ -7,6 +7,7 @@ export const TargetAreaProvider = ({ children }) => {
   const [currentTargetArea, setCurrentTargetArea] = useState(null);
   const [scenicAreas, setScenicAreas] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
+  const [locationError, setLocationError] = useState(null);
   const [isLocationWatching, setIsLocationWatching] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false);
   const watchIdRef = useRef(null);
@@ -100,6 +101,7 @@ export const TargetAreaProvider = ({ children }) => {
 
     if (!navigator.geolocation) {
       console.log('Geolocation not available');
+      setLocationError('Geolocation not available');
       return;
     }
 
@@ -118,6 +120,7 @@ export const TargetAreaProvider = ({ children }) => {
         };
         console.log('Initial location:', initialLocation);
         setUserLocation(initialLocation);
+        setLocationError(null);
         lastSpotsCalculationRef.current = initialLocation;
         lastAreaCalculationRef.current = initialLocation;
         
@@ -126,6 +129,7 @@ export const TargetAreaProvider = ({ children }) => {
       },
       (error) => {
         console.log('Initial geolocation error:', error);
+        setLocationError(error.message || '定位失败');
         // Still start watching in case permission is granted later
         startLocationWatching();
       },
@@ -149,7 +153,7 @@ export const TargetAreaProvider = ({ children }) => {
 
     const options = {
       enableHighAccuracy: true,
-      timeout: 3000,
+      timeout: 10000,
       maximumAge: 30000
     };
 
@@ -217,6 +221,7 @@ export const TargetAreaProvider = ({ children }) => {
       },
       (error) => {
         console.log('Location watching error:', error);
+        setLocationError(error.message || '定位失败');
         setIsLocationWatching(false);
       },
       options
@@ -347,21 +352,25 @@ export const TargetAreaProvider = ({ children }) => {
     lastAreaCalculationRef.current = newLocation;
   };
 
-  const value = {
-    currentTargetArea,
-    setTargetArea,
-    scenicAreas,
-    userLocation,
-    setUserLocation: updateUserLocation,
-    autoSelectTargetArea,
-    isLocationWatching,
-    isTestMode,
-    toggleTestMode,
-    updateMockLocation
-  };
-
   return (
-    <TargetAreaContext.Provider value={value}>
+    <TargetAreaContext.Provider
+      value={{
+        currentTargetArea,
+        setCurrentTargetArea,
+        scenicAreas,
+        setScenicAreas,
+        userLocation,
+        setUserLocation,
+        locationError,
+        setLocationError,
+        isTestMode,
+        setIsTestMode,
+        toggleTestMode,
+        setTargetArea,
+        updateUserLocation,
+        updateMockLocation
+      }}
+    >
       {children}
     </TargetAreaContext.Provider>
   );

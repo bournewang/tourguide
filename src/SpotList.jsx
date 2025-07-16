@@ -2,17 +2,17 @@ import { useState, useEffect } from 'react';
 import { useTargetArea } from './hooks/useTargetArea';
 import { wgs84ToBaidu, calculateDistance, formatDistance } from './utils/coordinateUtils';
 import { ttsService } from './utils/ttsService';
+import { getValidationStatus, formatValidationStatus } from './utils/validationStatus';
 
-function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
-  const { currentTargetArea, userLocation, scenicAreas, setTargetArea } = useTargetArea();
+function SpotList({ onSpotClick, onShowBoundaries, onShowMap, isDebugMode = false }) {
+  const { currentTargetArea, userLocation, locationError, scenicAreas, setTargetArea } = useTargetArea();
   const [spots, setSpots] = useState([]);
   const [spotsWithDistance, setSpotsWithDistance] = useState([]);
-  const [userLocationBD, setUserLocationBD] = useState(null);
-  const [locationError, setLocationError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cacheStatus, setCacheStatus] = useState(null);
   const [showAreaSelector, setShowAreaSelector] = useState(false);
   const [showAreaModal, setShowAreaModal] = useState(false);
+  const [validationStatus, setValidationStatus] = useState(null);
   
   // Fallback: if no currentTargetArea after 3 seconds, show error
   useEffect(() => {
@@ -21,7 +21,7 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
         console.log('SpotList: Timeout - no currentTargetArea set, but scenic areas loaded. This might be a bug.');
         setLoading(false);
       }
-    }, 3000);
+    }, 10000);
     
     return () => clearTimeout(timeout);
   }, [currentTargetArea, scenicAreas]);
@@ -33,7 +33,6 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
         console.log('Location fetch timeout - showing area selector');
         setShowAreaSelector(true);
       }, 10000);
-      
       return () => clearTimeout(timeout);
     } else {
       setShowAreaSelector(false);
@@ -74,6 +73,11 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
           const status = ttsService.getCacheStatus();
           setCacheStatus(status);
           
+          // Load validation status
+          const validationInfo = getValidationStatus();
+          console.log('validationInfo', validationInfo);
+          setValidationStatus(validationInfo);
+          
         } catch (error) {
           console.error('Failed to load spots from Cloudflare:', error);
           setSpots([]);
@@ -92,6 +96,46 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
     loadSpots();
   }, [currentTargetArea]);
 
+  // Update validation status periodically and when session changes
+  useEffect(() => {
+    const updateValidationStatus = () => {
+      const validationInfo = getValidationStatus();
+      console.log('validationInfo updated:', validationInfo);
+      setValidationStatus(validationInfo);
+    };
+    
+    // Update immediately
+    updateValidationStatus();
+    
+    // Listen for localStorage changes (when AccessGate completes validation)
+    const handleStorageChange = (e) => {
+      if (e.key === 'nfc_session') {
+        console.log('Session updated in localStorage, refreshing validation status');
+        updateValidationStatus();
+      }
+    };
+    
+    // Add event listener for storage changes
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom event (for same-page updates)
+    const handleSessionUpdate = () => {
+      console.log('Session updated via custom event, refreshing validation status');
+      updateValidationStatus();
+    };
+    
+    window.addEventListener('nfc-session-updated', handleSessionUpdate);
+    
+    // Update every 5 minutes
+    const interval = setInterval(updateValidationStatus, 5 * 60 * 1000);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('nfc-session-updated', handleSessionUpdate);
+    };
+  }, []);
+
   // Calculate distances when user location or spots change
   useEffect(() => {
     if (userLocation && spots.length > 0) {
@@ -99,7 +143,7 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
       
       // Convert user location from WGS-84 to Baidu for consistent coordinate system
       const userLocationBaidu = wgs84ToBaidu(userLocation.lat, userLocation.lng);
-      setUserLocationBD(userLocationBaidu);
+      // setUserLocationBD(userLocationBaidu); // This line is removed as per the edit hint
       console.log('User location converted to Baidu:', userLocationBaidu.lng, userLocationBaidu.lat);
       
       const spotsWithDist = spots.map(spot => {
@@ -120,7 +164,7 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
   // Handle location errors
   useEffect(() => {
     if (!navigator.geolocation) {
-      setLocationError('浏览器不支持定位功能');
+      // setLocationError('浏览器不支持定位功能'); // This line is removed as per the edit hint
     }
   }, []);
 
@@ -178,193 +222,179 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4">
-      <div className="max-w-3xl mx-auto px-4">
-        <h1 className="text-3xl font-bold text-center mb-4 text-gray-800">
-          🏯 {currentTargetArea?.name || '景点导览'}
-        </h1>
-        
-        {/* Scenic Area Description */}
-        {currentTargetArea && currentTargetArea.description && (
-          <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-            <div className="flex items-start space-x-3">
-              <div className="text-2xl">ℹ️</div>
-              <div>
-                {/* <h2 className="text-lg font-semibold text-gray-800 mb-2">景区简介</h2> */}
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  {currentTargetArea.description}
-                </p>
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <div className="flex-1 overflow-y-auto px-2 pb-28"> {/* Add pb-28 for bottom padding */}
+        <div className="max-w-3xl mx-auto px-4">
+          <h1 className="text-3xl font-bold text-center mb-4 text-gray-800">
+            🏯 {currentTargetArea?.name || '景点导览'}
+          </h1>
+          
+          {/* Scenic Area Description */}
+          {currentTargetArea && currentTargetArea.description && (
+            <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
+              <div className="flex items-start space-x-3">
+                <div className="text-2xl">ℹ️</div>
+                <div>
+                  {/* <h2 className="text-lg font-semibold text-gray-800 mb-2">景区简介</h2> */}
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    {currentTargetArea.description}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-        
-        {/* Current Target Area Info */}
-        {/* {currentTargetArea && (
-          <div className="bg-blue-50 rounded-xl p-3 mb-4 text-center shadow-sm">
-            <p className="text-sm text-blue-600 font-medium">
-              🎯 当前景区: {currentTargetArea.name}
-            </p>
-            {userLocation && (
-              <p className="text-xs text-blue-500 mt-1">
-                📍 您的位置已获取，景点按距离排序
-              </p>
-            )}
-          </div>
-        )} */}
-        
-        {/* Map View Buttons */}
-        <div className="text-center mb-4 space-y-2">
-          {isDebugMode && (
-            <button
-              onClick={onShowBoundaries}
-              className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-xl text-sm font-semibold shadow-md transition-colors duration-200 flex items-center mx-auto"
-            >
-              🗺️ 景区边界查看
-            </button>
           )}
-        </div>
-        
-        {/* Location status */}
-        {locationError ? (
-          <div className="bg-red-50 rounded-xl p-4 mb-4 shadow-sm">
-            <div className="text-center">
-              <p className="text-sm text-red-600 mb-3">
-                📍 无法获取位置: {locationError}
+          
+          {/* Current Target Area Info */}
+          {/* {currentTargetArea && (
+            <div className="bg-blue-50 rounded-xl p-3 mb-4 text-center shadow-sm">
+              <p className="text-sm text-blue-600 font-medium">
+                🎯 当前景区: {currentTargetArea.name}
               </p>
-              {scenicAreas.length > 1 ? (
-                <>
-                  <p className="text-xs text-gray-500 mb-3">
-                    没关系！您可以手动选择想要游览的景区
-                  </p>
-                  <button
-                    onClick={() => setShowAreaModal(true)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                  >
-                    📍 选择景区
-                  </button>
-                </>
-              ) : (
-                <p className="text-xs text-gray-500">
-                  系统将使用默认景区
+              {userLocation && (
+                <p className="text-xs text-blue-500 mt-1">
+                  📍 您的位置已获取，景点按距离排序
                 </p>
               )}
             </div>
-          </div>
-        ) : userLocation ? (
-          <></>
-          // Optional: Show success message when location is available
-          // <div className="bg-green-50 rounded-xl p-3 mb-4 text-center shadow-sm">
-          //   <p className="text-sm text-green-600 font-medium">
-          //     ✅ 已获取您的位置，按距离远近排序 
-          //   </p>
-          // </div>
-        ) : showAreaSelector ? (
-          <div className="bg-yellow-50 rounded-xl p-3 mb-4 text-center shadow-sm">
-            <p className="text-sm text-yellow-600 mb-2">
-              ⏰ 位置获取时间较长
-            </p>
-            {scenicAreas.length > 1 && (
-              <button
-                onClick={() => setShowAreaModal(true)}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-              >
-                📍 选择景区
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="bg-yellow-50 rounded-xl p-3 mb-4 text-center shadow-sm">
-            <p className="text-sm text-yellow-600">
-              ⏳ 正在获取您的位置，请稍候...
-            </p>
-          </div>
-        )}
+          )} */}
+          
 
-        {/* Area Selection Modal */}
-        {showAreaModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAreaModal(false)}>
-            <div className="bg-white rounded-xl p-6 m-4 max-w-md w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
-              <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">选择景区</h3>
-                <p className="text-sm text-gray-600">请选择您想要游览的景区</p>
-              </div>
-              
-              <div className="grid grid-cols-1 gap-3 mb-4">
-                {scenicAreas.map((area, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      console.log('Selecting area from modal:', area.name);
-                      setTargetArea(area);
-                      setShowAreaModal(false);
-                    }}
-                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 text-left ${
-                      currentTargetArea?.name === area.name
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
-                    }`}
-                  >
-                    <div className="font-medium">{area.name}</div>
-                    {area.description && (
-                      <div className="text-xs mt-1 opacity-75 line-clamp-2">
-                        {area.description.slice(0, 50)}...
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-              
-              <button
-                onClick={() => setShowAreaModal(false)}
-                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        )}
+          
+          {/* Location status */}
+          {locationError ? (
         
-        {/* Spots List */}
-        <div className="space-y-3">
-          {spotsWithDistance.length > 0 ? (
-            spotsWithDistance.map((spot, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-xl p-4 flex items-center space-x-4 hover:shadow-lg cursor-pointer shadow-sm transition-all duration-200 hover:-translate-y-1"
-                onClick={() => onSpotClick && onSpotClick(spot)}
-              >
-                <img
-                  src={spot.image_thumb || '/spot-default.jpg'}
-                  alt={spot.name}
-                  className="w-16 h-16 object-cover rounded-lg"
-                  onError={(e) => {
-                    e.target.src = '/spot-default.jpg';
-                  }}
-                />
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">{spot.name}</h3>
-                  <div className="space-y-1">
-                    {spot.distance !== null && (
-                      <p className="text-sm text-blue-600 font-semibold">
-                        📍 {formatDistance(spot.distance)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="text-blue-500 text-xl font-bold">
-                  ▶
-                </div>
+              <div className="fixed bottom-14 left-0 w-full bg-white border-t border-gray-200 shadow-lg z-50 py-3">
+                <div className="flex flex-col sm:flex-row gap-2 justify-center px-4">
+                {scenicAreas.length > 1 ? (
+                  <>
+                    <button
+                      onClick={() => setShowAreaModal(true)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                    >
+                      📍 无法获取位置，{locationError}, 选择景区
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    系统将使用默认景区
+                  </p>
+                )}
               </div>
-            ))
+            </div>
+          ) : userLocation ? (
+            <></>
+            // Optional: Show success message when location is available
+            // <div className="bg-green-50 rounded-xl p-3 mb-4 text-center shadow-sm">
+            //   <p className="text-sm text-green-600 font-medium">
+            //     ✅ 已获取您的位置，按距离远近排序 
+            //   </p>
+            // </div>
+          ) : showAreaSelector ? (
+            <div className="bg-yellow-50 rounded-xl p-3 mb-4 text-center shadow-sm">
+              <p className="text-sm text-yellow-600 mb-2">
+                ⏰ 位置获取时间较长
+              </p>
+              {scenicAreas.length > 1 && (
+                <button
+                  onClick={() => setShowAreaModal(true)}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                >
+                  📍 选择景区
+                </button>
+              )}
+            </div>
           ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-600">暂无景点数据</p>
+            <div className="bg-yellow-50 rounded-xl p-3 mb-4 text-center shadow-sm">
+              <p className="text-sm text-yellow-600">
+                ⏳ 正在获取您的位置，请稍候...
+              </p>
             </div>
           )}
+
+          {/* Area Selection Modal */}
+          {showAreaModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAreaModal(false)}>
+              <div className="bg-white rounded-xl p-6 m-4 max-w-md w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+                <div className="text-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">选择景区</h3>
+                  <p className="text-sm text-gray-600">请选择您想要游览的景区</p>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-3 mb-4">
+                  {scenicAreas.map((area, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        console.log('Selecting area from modal:', area.name);
+                        setTargetArea(area);
+                        setShowAreaModal(false);
+                      }}
+                      className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 text-left ${
+                        currentTargetArea?.name === area.name
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                    >
+                      <div className="font-medium">{area.name}</div>
+                      {area.description && (
+                        <div className="text-xs mt-1 opacity-75 line-clamp-2">
+                          {area.description.slice(0, 50)}...
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                
+                <button
+                  onClick={() => setShowAreaModal(false)}
+                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Spots List */}
+          <div className="space-y-3">
+            {spotsWithDistance.length > 0 ? (
+              spotsWithDistance.map((spot, index) => (
+                <div
+                  key={index}
+                  className="bg-white rounded-xl p-4 flex items-center space-x-4 hover:shadow-lg cursor-pointer shadow-sm transition-all duration-200 hover:-translate-y-1"
+                  onClick={() => onSpotClick && onSpotClick(spot)}
+                >
+                  <img
+                    src={spot.image_thumb || '/spot-default.jpg'}
+                    alt={spot.name}
+                    className="w-16 h-16 object-cover rounded-lg"
+                    onError={(e) => {
+                      e.target.src = '/spot-default.jpg';
+                    }}
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">{spot.name}</h3>
+                    <div className="space-y-1">
+                      {spot.distance !== null && (
+                        <p className="text-sm text-blue-600 font-semibold">
+                          📍 {formatDistance(spot.distance)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-blue-500 text-xl font-bold">
+                    ▶
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-600">暂无景点数据</p>
+              </div>
+            )}
+          </div>
         </div>
-        
-        <div className="mt-6 text-center">
+        <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
             👆 点击任意景点查看详情和听取讲解
           </p>
@@ -381,10 +411,35 @@ function SpotList({ onSpotClick, onShowBoundaries, isDebugMode = false }) {
             </div>
           )}
 
+          {validationStatus && (
+            <div className="mt-2 text-xs text-green-600 font-medium">
+              🏷️ NFC验证: {formatValidationStatus(validationStatus)}
+            </div>
+          )}
 
-          {userLocationBD && <p className="text-xs text-gray-500">
-              {userLocationBD.lng.toFixed(6)}°, {userLocationBD.lat.toFixed(6)}°
+
+          {userLocation && <p className="text-xs text-gray-500">
+              {userLocation.lng.toFixed(6)}°, {userLocation.lat.toFixed(6)}°
             </p>}
+        </div>
+      </div>
+      {/* Fixed Map Button at Bottom */}
+      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-lg z-50 py-3">
+        <div className="flex flex-col sm:flex-row gap-2 justify-center px-4">
+          <button
+            onClick={onShowMap}
+            className="bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded-xl text-sm font-semibold shadow-md transition-colors duration-200 flex items-center justify-center"
+          >
+            🗺️ 景点地图
+          </button>
+          {isDebugMode && (
+            <button
+              onClick={onShowBoundaries}
+              className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-xl text-sm font-semibold shadow-md transition-colors duration-200 flex items-center justify-center"
+            >
+              🗺️ 景区边界查看
+            </button>
+          )}
         </div>
       </div>
     </div>

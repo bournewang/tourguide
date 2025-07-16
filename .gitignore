@@ -29,3 +29,11 @@ public/audio
 public/spots
 public/spots-images
 public/spots-thumb/
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+!.edgeone/project.json
+.tef_dist/*
+nfc-tags/
+nfc-tags-output/

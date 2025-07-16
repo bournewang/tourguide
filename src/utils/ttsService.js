@@ -73,6 +73,48 @@ export const ttsService = {
     }
   },
 
+  // Validate device access for NFC authentication
+  async validateDeviceAccess(uid, deviceFingerprint, maxDevices = 3) {
+    try {
+      const response = await fetch(`${API_BASE}/api/nfc/validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid,
+          deviceFingerprint,
+          maxDevices
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.log('❌ Device access validation failed:', data);
+        return {
+          success: false,
+          error: data.error,
+          deviceCount: data.deviceCount,
+          maxDevices: data.maxDevices
+        };
+      }
+
+      console.log('✅ Device access granted:', data);
+      return {
+        success: true,
+        data
+      };
+
+    } catch (error) {
+      console.error('Device validation API error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  },
+
   // Generate narration using QWen AI - Only available in API mode
   async generateNarration(spotInfo) {
     if (!dataService.isApiMode()) {

@@ -10,15 +10,36 @@ const forceStatic = import.meta.env.VITE_USE_STATIC_DATA === 'true';
 const API_BASE = import.meta.env.VITE_WORKER_URL || 'https://worker.qingfan.org';
 
 const DATA_PATH = '/data';
-const SCENIC_AREA_FILE = 'scenic-area-kaifeng.json';
 
-// Static data paths
-const STATIC_PATHS = {
-  scenicAreas: `${DATA_PATH}/${SCENIC_AREA_FILE}`
-};
+// Default scenic area file
+let CURRENT_SCENIC_AREA_FILE = 'scenic-area.json'; // Default to Dengfeng
+
+// Static data paths (will be updated dynamically)
+const getStaticPaths = () => ({
+  scenicAreas: `${DATA_PATH}/${CURRENT_SCENIC_AREA_FILE}`
+});
 
 // Cache for scenic areas data to avoid repeated fetches
 let _scenicAreasCache = null;
+
+/**
+ * Set the scenic area file to use (for area-level NFC validation)
+ * @param {string} filename - The scenic area file name (e.g., 'scenic-area-kaifeng.json')
+ */
+export const setScenicAreaFile = (filename) => {
+  console.log('🏞️ Setting scenic area file:', filename);
+  CURRENT_SCENIC_AREA_FILE = filename;
+  // Clear cache when switching files
+  _scenicAreasCache = null;
+  cacheService.clear();
+};
+
+/**
+ * Get current scenic area file
+ */
+export const getCurrentScenicAreaFile = () => {
+  return CURRENT_SCENIC_AREA_FILE;
+};
 
 // Determine data source based on environment
 export const getDataSource = () => {
@@ -63,7 +84,7 @@ export const dataService = {
       
       if (dataSource === 'static') {
         //console.log('🗂️ Fetching scenic areas from static file...');
-        const response = await fetch(STATIC_PATHS.scenicAreas);
+        const response = await fetch(getStaticPaths().scenicAreas);
         
         if (!response.ok) {
           throw new Error(`Static file error (${response.status}): ${response.statusText}`);
