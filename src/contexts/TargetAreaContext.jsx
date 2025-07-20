@@ -7,30 +7,64 @@ export const TargetAreaProvider = ({ children }) => {
   const [currentTargetArea, setCurrentTargetArea] = useState(null);
   const [scenicAreas, setScenicAreas] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
+  const [userLocationWGS84, setUserLocationWGS84] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [isLocationWatching, setIsLocationWatching] = useState(false);
-  const [isTestMode, setIsTestMode] = useState(false);
+  const [isDebugMode, setIsDebugMode] = useState(false);
   const watchIdRef = useRef(null);
   const lastSpotsCalculationRef = useRef(null);
   const lastAreaCalculationRef = useRef(null);
 
-  // Check for test mode on initialization
+  // Check for test mode and debug mode on initialization
   useEffect(() => {
-    const testMode = localStorage.getItem('testMode') === 'true';
-    setIsTestMode(testMode);
-    console.log('Test mode:', testMode);
+    // Check for debug mode from localStorage or URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const debugParam = urlParams.get('debug');
+    const storedDebugMode = localStorage.getItem('debugMode') === 'true';
+    const debugMode = debugParam === '1' || storedDebugMode;
     
-    if (testMode) {
+    if (debugMode) {
+      localStorage.setItem('debugMode', 'true');
+    }
+    
+    setIsDebugMode(debugMode);
+    console.log('Debug mode:', debugMode, '(from URL:', debugParam === '1', ', from localStorage:', storedDebugMode, ')');
+    
+    if (debugMode) {
+      console.log('Debug mode active, stopping real geolocation');
+      
+      // Force stop any existing location monitoring
+      stopLocationWatching();
+      
       // Load initial mock location if available
       const mockLocation = getMockLocation();
       if (mockLocation) {
         console.log('Loaded mock location:', mockLocation);
-        setUserLocation(mockLocation);
+        updateUserLocationCoordinates(mockLocation, true); // Assume BD-09 from mock
         lastSpotsCalculationRef.current = mockLocation;
         lastAreaCalculationRef.current = mockLocation;
       }
+    } else {
+      console.log('Normal mode active, starting real geolocation');
+      startLocationWatching();
     }
   }, []);
+
+  // Helper functions for coordinate management
+  const updateUserLocationCoordinates = (location, isFromBaiduMap = false) => {
+    if (isFromBaiduMap) {
+      // Coordinates from Baidu Map are already in BD-09 format
+      setUserLocation(location); // Store as BD-09 (default)
+      setUserLocationWGS84(null); // We don't have WGS-84 for Baidu Map clicks
+      console.log('Updated coordinates from Baidu Map (BD-09):', location);
+    } else {
+      // Coordinates from GPS are in WGS-84 format
+      setUserLocationWGS84(location);
+      const bd09Location = wgs84ToBaidu(location.lat, location.lng);
+      setUserLocation(bd09Location); // Store BD-09 as default
+      console.log('Updated coordinates from GPS (WGS-84):', location, 'converted to BD-09:', bd09Location);
+    }
+  };
 
   // Helper functions for test mode
   const getMockLocation = () => {
@@ -54,27 +88,7 @@ export const TargetAreaProvider = ({ children }) => {
     }
   };
 
-  const toggleTestMode = () => {
-    const newTestMode = !isTestMode;
-    setIsTestMode(newTestMode);
-    localStorage.setItem('testMode', newTestMode.toString());
-    console.log('Test mode toggled:', newTestMode);
-    
-    if (newTestMode) {
-      // Stop real geolocation if it was running
-      stopLocationWatching();
-      // Load mock location
-      const mockLocation = getMockLocation();
-      if (mockLocation) {
-        setUserLocation(mockLocation);
-        lastSpotsCalculationRef.current = mockLocation;
-        lastAreaCalculationRef.current = mockLocation;
-      }
-    } else {
-      // Switch back to real geolocation
-      startLocationWatching();
-    }
-  };
+
 
   // Load scenic areas
   useEffect(() => {
@@ -91,11 +105,13 @@ export const TargetAreaProvider = ({ children }) => {
     loadScenicAreas();
   }, []);
 
-  // Start automatic location monitoring
-  useEffect(() => {
-    // Don't start real geolocation if in test mode
-    if (isTestMode) {
-      console.log('Test mode active, skipping real geolocation');
+
+
+  // Start continuous location monitoring
+  const startLocationWatching = () => {
+    // Don't start real geolocation if in debug mode
+    if (isDebugMode) {
+      console.log('Debug mode active, skipping real geolocation watching');
       return;
     }
 
@@ -105,10 +121,12 @@ export const TargetAreaProvider = ({ children }) => {
       return;
     }
 
+    if (isLocationWatching) return;
+
     const options = {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 30000 // Accept cached positions up to 30 seconds old
+      maximumAge: 30000
     };
 
     // First get initial position
@@ -119,36 +137,30 @@ export const TargetAreaProvider = ({ children }) => {
           lng: position.coords.longitude
         };
         console.log('Initial location:', initialLocation);
-        setUserLocation(initialLocation);
+        updateUserLocationCoordinates(initialLocation, false); // GPS coordinates
         setLocationError(null);
         lastSpotsCalculationRef.current = initialLocation;
         lastAreaCalculationRef.current = initialLocation;
         
-        // Then start continuous monitoring
-        startLocationWatching();
+        // Then start continuous monitoring (only if not in debug mode)
+        if (!isDebugMode) {
+          startContinuousWatching();
+        }
       },
       (error) => {
         console.log('Initial geolocation error:', error);
         setLocationError(error.message || '定位失败');
-        // Still start watching in case permission is granted later
-        startLocationWatching();
+        // Still start watching in case permission is granted later (only if not in debug mode)
+        if (!isDebugMode) {
+          startContinuousWatching();
+        }
       },
       options
     );
-
-    return () => {
-      stopLocationWatching();
-    };
-  }, [isTestMode]);
+  };
 
   // Start continuous location monitoring
-  const startLocationWatching = () => {
-    // Don't start real geolocation if in test mode
-    if (isTestMode) {
-      console.log('Test mode active, skipping real geolocation watching');
-      return;
-    }
-
+  const startContinuousWatching = () => {
     if (!navigator.geolocation || isLocationWatching) return;
 
     const options = {
@@ -177,22 +189,22 @@ export const TargetAreaProvider = ({ children }) => {
             newLocation.lng
           );
           
-          console.log(`Spots distance calculation: ${spotsDistance.toFixed(2)}m (threshold: 10m)`);
+        console.log(`Spots distance calculation: ${spotsDistance.toFixed(2)}m (threshold: 10m)`);
           
-          if (spotsDistance >= 10) {
-            console.log(`✅ Moved ${spotsDistance.toFixed(1)}m, triggering spots recalculation`);
-            lastSpotsCalculationRef.current = newLocation;
-            // Only update userLocation when movement exceeds threshold
-            setUserLocation(newLocation);
-          } else {
-            console.log(`❌ Movement ${spotsDistance.toFixed(1)}m is below 10m threshold, NOT triggering spots recalculation`);
-            // Don't update userLocation for small movements
-          }
+        if (spotsDistance >= 10) {
+          console.log(`✅ Moved ${spotsDistance.toFixed(1)}m, triggering spots recalculation`);
+          lastSpotsCalculationRef.current = newLocation;
+          // Only update userLocation when movement exceeds threshold
+          updateUserLocationCoordinates(newLocation, false);
+        } else {
+          console.log(`❌ Movement ${spotsDistance.toFixed(1)}m is below 10m threshold, NOT triggering spots recalculation`);
+          // Don't update userLocation for small movements
+        }
         } else {
           console.log('No last spots calculation location, setting initial reference');
           lastSpotsCalculationRef.current = newLocation;
           // Set initial userLocation
-          setUserLocation(newLocation);
+          updateUserLocationCoordinates(newLocation, false);
         }
         
         // Check if we need to recalculate area (100m threshold)
@@ -243,7 +255,7 @@ export const TargetAreaProvider = ({ children }) => {
 
   // Set default target area when scenic areas are loaded
   useEffect(() => {
-    console.log('TargetAreaContext: scenicAreas.length:', scenicAreas.length, 'currentTargetArea:', currentTargetArea);
+    // console.log('TargetAreaContext: scenicAreas.length:', scenicAreas.length, 'currentTargetArea:', currentTargetArea);
     
     if (scenicAreas.length > 0 && !currentTargetArea) {
       // Set Shaolin Temple as default target area
@@ -304,11 +316,10 @@ export const TargetAreaProvider = ({ children }) => {
   const autoSelectTargetArea = () => {
     if (!userLocation || scenicAreas.length === 0) return;
     
-    console.log('Auto-selecting target area based on user location (WGS-84):', userLocation);
+    console.log('Auto-selecting target area based on user location (BD-09):', userLocation);
     
-    // Convert user location from WGS-84 to Baidu for all calculations
-    const userLocationBaidu = wgs84ToBaidu(userLocation.lat, userLocation.lng);
-    console.log('User location converted to Baidu:', userLocationBaidu);
+    // Use BD-09 coordinates directly since userLocation is BD-09 by default
+    const userLocationBaidu = userLocation;
     
     // First, check if user is inside any scenic area boundary
     const currentArea = scenicAreas.find(area => isPointInBounds(userLocationBaidu, area.bounds));
@@ -329,11 +340,11 @@ export const TargetAreaProvider = ({ children }) => {
 
   // Auto-select target area based on user location (both automatic and manual)
   useEffect(() => {
-    if (userLocation && scenicAreas.length > 0) {
+    if (userLocation && scenicAreas.length > 0 && !isDebugMode) {
       console.log('User location changed, auto-selecting target area');
       autoSelectTargetArea();
     }
-  }, [userLocation, scenicAreas]);
+  }, [userLocation, scenicAreas, isDebugMode]);
 
   const setTargetArea = (area) => {
     setCurrentTargetArea(area);
@@ -341,15 +352,31 @@ export const TargetAreaProvider = ({ children }) => {
 
   const updateUserLocation = (newLocation) => {
     console.log('Manually updating user location:', newLocation);
-    setUserLocation(newLocation);
+    updateUserLocationCoordinates(newLocation, false);
   };
 
   const updateMockLocation = (newLocation) => {
     console.log('Updating mock location:', newLocation);
     setMockLocation(newLocation);
-    setUserLocation(newLocation);
+    updateUserLocationCoordinates(newLocation, true); // BD-09 from Baidu Map
     lastSpotsCalculationRef.current = newLocation;
     lastAreaCalculationRef.current = newLocation;
+    
+    // Trigger area selection for mock locations in debug mode
+    if (isDebugMode && scenicAreas.length > 0) {
+      console.log('Debug mode: Triggering area selection for mock location');
+      autoSelectTargetArea();
+    }
+  };
+
+  const exitDebugMode = () => {
+    localStorage.removeItem('debugMode');
+    setIsDebugMode(false);
+    console.log('Debug mode exited, localStorage cleared');
+    
+    // Start real geolocation when exiting debug mode
+    console.log('Starting real geolocation after exiting debug mode');
+    startLocationWatching();
   };
 
   return (
@@ -360,12 +387,12 @@ export const TargetAreaProvider = ({ children }) => {
         scenicAreas,
         setScenicAreas,
         userLocation,
-        setUserLocation,
+        userLocationWGS84,
         locationError,
         setLocationError,
-        isTestMode,
-        setIsTestMode,
-        toggleTestMode,
+        isDebugMode,
+        setIsDebugMode,
+        exitDebugMode,
         setTargetArea,
         updateUserLocation,
         updateMockLocation

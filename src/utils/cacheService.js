@@ -10,7 +10,7 @@ export const cacheService = {
       const cached = localStorage.getItem(cacheKey);
       
       if (!cached) {
-        console.log(`🗄️ Cache miss: ${key}`);
+        // console.log(`🗄️ Cache miss: ${key}`);
         return null;
       }
       
@@ -23,7 +23,7 @@ export const cacheService = {
         return null;
       }
       
-      console.log(`✅ Cache hit: ${key} (${Math.round((now - timestamp) / 1000 / 60)} minutes old)`);
+      // console.log(`✅ Cache hit: ${key} (${Math.round((now - timestamp) / 1000 / 60)} minutes old)`);
       return data;
     } catch (error) {
       console.error(`❌ Cache get error for ${key}:`, error);

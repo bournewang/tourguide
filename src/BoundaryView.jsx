@@ -1,12 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTargetArea } from './hooks/useTargetArea';
-import { wgs84ToBaidu } from './utils/coordinateUtils';
 import { ttsService } from './utils/ttsService';
 
-const BoundaryView = ({ onBack }) => {
-  const { currentTargetArea: globalCurrentTargetArea, setTargetArea } = useTargetArea();
+const BoundaryView = () => {
+  const { 
+    currentTargetArea: globalCurrentTargetArea, 
+    setTargetArea, 
+    userLocation,
+    isTestMode,
+    toggleTestMode,
+    isDebugMode,
+    exitDebugMode,
+    updateMockLocation
+  } = useTargetArea();
+
   const [scenicAreas, setScenicAreas] = useState([]);
-  const [userLocation, setUserLocation] = useState(null);
   const [selectedArea, setSelectedArea] = useState(null);
   const [currentTargetArea, setCurrentTargetArea] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,6 +26,9 @@ const BoundaryView = ({ onBack }) => {
   const [allDataLoaded, setAllDataLoaded] = useState(false);
   const [clickedLocation, setClickedLocation] = useState(null);
   const [cacheStatus, setCacheStatus] = useState(null);
+  const [showTestControls, setShowTestControls] = useState(false);
+  const [mockLat, setMockLat] = useState('');
+  const [mockLng, setMockLng] = useState('');
   const clickHandlerRef = useRef(null);
   const spotsRef = useRef({});
   const showSpotsRef = useRef(true);
@@ -78,38 +89,7 @@ const BoundaryView = ({ onBack }) => {
     }
   };
 
-  const getUserLocation = () => {
-    // console.log('getUserLocation called');
-    if (navigator.geolocation) {
-    //   console.log('Geolocation available, requesting position...');
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // Convert WGS-84 coordinates to BD-09 for Baidu Maps
-          const wgsLat = position.coords.latitude;
-          const wgsLng = position.coords.longitude;
-          const baiduCoords = wgs84ToBaidu(wgsLat, wgsLng);
-          
-          console.log('User location - WGS-84:', { lat: wgsLat, lng: wgsLng });
-          console.log('User location - BD-09:', baiduCoords);
-          
-          setUserLocation(baiduCoords);
-        },
-        (error) => {
-          console.log('Geolocation error:', error);
-          // Set a default location (Shaolin Temple area) in BD-09 coordinates
-          const defaultCoords = wgs84ToBaidu(34.5083, 113.0362);
-          console.log('Using default location:', defaultCoords);
-          setUserLocation(defaultCoords);
-        }
-      );
-    } else {
-      console.log('Geolocation not available, using default location');
-      // Fallback to default location in BD-09 coordinates
-      const defaultCoords = wgs84ToBaidu(34.5083, 113.0362);
-      console.log('Using default location:', defaultCoords);
-      setUserLocation(defaultCoords);
-    }
-  };
+
 
   const isPointInBounds = (point, bounds) => {
     return point.lat >= bounds.sw.lat && 
@@ -269,7 +249,7 @@ const BoundaryView = ({ onBack }) => {
                     // Draw spot marker
                     ctx.beginPath();
                     ctx.arc(spotPixel.x, spotPixel.y, 4, 0, 2 * Math.PI);
-                    ctx.fillStyle = '#ef4444';
+                    ctx.fillStyle = '#f97316';
                     ctx.fill();
                     ctx.strokeStyle = '#ffffff';
                     ctx.lineWidth = 1;
@@ -339,6 +319,21 @@ const BoundaryView = ({ onBack }) => {
         }
         */
         
+        // Remove any existing click markers first
+        const overlays = baiduMap.getOverlays();
+        overlays.forEach(overlay => {
+          if (overlay._isClickMarker) {
+            baiduMap.removeOverlay(overlay);
+          }
+        });
+        
+        // Add a small click point marker
+        const clickMarker = new window.BMap.Marker(clickPoint, {
+          icon: new window.BMap.Icon('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiMzMDAiLz4KPC9zdmc+', new window.BMap.Size(16, 16))
+        });
+        clickMarker._isClickMarker = true;
+        baiduMap.addOverlay(clickMarker);
+        
         // Show location info if user location is available
         if (userLocation) {
           const distance = calculateDistance(
@@ -367,32 +362,6 @@ const BoundaryView = ({ onBack }) => {
         //   `);
           
         //   // Open info window at clicked point
-        //   baiduMap.openInfoWindow(infoWindow, clickPoint);
-          
-        //   // Add a temporary marker at clicked point
-        //   const tempMarker = new window.BMap.Marker(clickPoint, {
-        //     icon: new window.BMap.Icon('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiM2NjYiLz4KPC9zdmc+', new window.BMap.Size(16, 16))
-        //   });
-        //   tempMarker._isTempMarker = true;
-        //   baiduMap.addOverlay(tempMarker);
-          
-        //   // Remove temporary marker after 3 seconds
-        //   setTimeout(() => {
-        //     baiduMap.removeOverlay(tempMarker);
-        //   }, 3000);
-        } else {
-          // If no user location, just show coordinates
-        //   const infoWindow = new window.BMap.InfoWindow(`
-        //     <div style="width: 200px; padding: 10px;">
-        //       <h3 style="margin: 0 0 8px 0; color: #333;">📍 Clicked Location</h3>
-        //       <div style="margin: 0; font-size: 12px; color: #666;">
-        //         <strong>Coordinates:</strong><br>
-        //         Lat: ${clickPoint.lat.toFixed(6)}<br>
-        //         Lng: ${clickPoint.lng.toFixed(6)}
-        //       </div>
-        //     </div>
-        //   `);
-          
         //   baiduMap.openInfoWindow(infoWindow, clickPoint);
         }
       };
@@ -452,7 +421,8 @@ const BoundaryView = ({ onBack }) => {
 
   useEffect(() => {
     loadScenicAreas();
-    getUserLocation();
+    // getUserLocation();
+
     // Load Baidu Maps API
     if (!window.BMap) {
       const script = document.createElement('script');
@@ -501,10 +471,7 @@ const BoundaryView = ({ onBack }) => {
     showSpotsRef.current = showSpots; // Update ref with current showSpots state
   }, [showSpots]);
 
-  // Debug userLocation state changes
-  useEffect(() => {
-    console.log('userLocation state changed:', userLocation);
-  }, [userLocation]);
+
 
   // Debug clickedLocation state changes
   useEffect(() => {
@@ -513,11 +480,11 @@ const BoundaryView = ({ onBack }) => {
 
   // Auto-select scenic area based on user location
   useEffect(() => {
-    if (userLocation && scenicAreas.length > 0) {
+    if (userLocation && scenicAreas.length > 0 && !isTestMode) {
       console.log('User location changed, auto-selecting scenic area');
       autoSelectScenicArea();
     }
-  }, [userLocation, scenicAreas]);
+  }, [userLocation, scenicAreas, isTestMode]);
 
   const getNearestArea = () => {
     if (!userLocation) return null;
@@ -585,12 +552,14 @@ const BoundaryView = ({ onBack }) => {
     }
   }, [currentTargetArea, setTargetArea]);
 
-  // Sync local currentTargetArea with global context value
+  // Sync local currentTargetArea with global context value (only when local is null)
   useEffect(() => {
-    if (globalCurrentTargetArea && (!currentTargetArea || globalCurrentTargetArea.name !== currentTargetArea.name)) {
+    if (globalCurrentTargetArea && !currentTargetArea) {
       setCurrentTargetArea(globalCurrentTargetArea);
     }
-  }, [globalCurrentTargetArea]);
+  }, [globalCurrentTargetArea, currentTargetArea]);
+
+
 
   if (loading || !allDataLoaded) {
     return (
@@ -616,9 +585,20 @@ const BoundaryView = ({ onBack }) => {
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <div className="text-center p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+      <div className="text-center p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white relative">
         <h1 className="text-2xl font-bold mb-1">🗺️ Scenic Area Boundaries</h1>
         <p className="text-sm opacity-90">View and explore the boundaries of all scenic areas</p>
+        
+        {/* Debug Mode Exit Button */}
+        {isDebugMode && (
+          <button
+            onClick={exitDebugMode}
+            className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm font-semibold transition-colors"
+          >
+            🚪 Exit Debug Mode
+          </button>
+        )}
+        
         {/* Cache Status Indicator */}
         {cacheStatus && (
           <div className="text-xs opacity-75 mt-2">
@@ -632,17 +612,7 @@ const BoundaryView = ({ onBack }) => {
         )}
       </div>
 
-      {/* Back Button */}
-      {onBack && (
-        <div className="p-2 bg-white border-b">
-          <button
-            onClick={onBack}
-            className="bg-gray-600 hover:bg-gray-700 text-white py-1 px-3 rounded text-sm font-semibold transition-colors duration-200"
-          >
-            ← Back to List
-          </button>
-        </div>
-      )}
+
 
       {/* Main Content - Left/Right Split */}
       <div className="flex-1 flex overflow-hidden">
@@ -685,7 +655,7 @@ const BoundaryView = ({ onBack }) => {
                 </div>
                 {showSpots && (
                   <div className="flex items-center mb-1">
-                    <div className="w-4 h-4 bg-red-500 mr-2">●</div>
+                    <div className="w-4 h-4 bg-orange-500 mr-2">●</div>
                     <span>Spots</span>
                   </div>
                 )}
@@ -732,37 +702,85 @@ const BoundaryView = ({ onBack }) => {
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-gray-800 mb-4">🗺️ Map Info</h3>
                 <p className="text-gray-600 text-sm mb-4">
-                  Click on any area to select it and view details. Red dots show individual spots when enabled.
+                  Click on any area to select it and view details. Orange dots show individual spots when enabled.
                 </p>
                 
-                {/* Current Location Info */}
-                {userLocation && (
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <h4 className="font-semibold text-blue-800 mb-2">📍 Your Current Location</h4>
-                    <div className="text-sm text-blue-700 space-y-1">
-                      <div><strong>Coordinates:</strong></div>
-                      <div className="font-mono text-xs">
-                        {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+
+                {/* Test Mode Controls */}
+                {showTestControls && (
+                  <div className="mt-4 bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <h4 className="font-semibold text-purple-800 mb-2">🧪 Test Mode Controls</h4>
+                    <div className="text-sm text-purple-700 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Test Mode:</span>
+                        <button
+                          onClick={toggleTestMode}
+                          className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+                            isTestMode 
+                              ? 'bg-green-600 hover:bg-green-700 text-white' 
+                              : 'bg-gray-600 hover:bg-gray-700 text-white'
+                          }`}
+                        >
+                          {isTestMode ? 'ON' : 'OFF'}
+                        </button>
+                        {isTestMode && (
+                          <span className="text-xs text-green-600 font-medium">
+                            Using mock location
+                          </span>
+                        )}
                       </div>
-                      <div className="flex space-x-2 mt-2">
-                        <button
-                          onClick={() => {
-                            if (map) {
-                              const userPoint = new window.BMap.Point(userLocation.lng, userLocation.lat);
-                              map.panTo(userPoint);
-                              map.setZoom(15);
-                            }
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
-                        >
-                          Center on My Location
-                        </button>
-                        <button
-                          onClick={autoSelectScenicArea}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
-                        >
-                          Auto-Select Area
-                        </button>
+                      
+                      <div className="space-y-2">
+                        <div className="font-medium">Set Mock Location:</div>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            step="0.000001"
+                            placeholder="Latitude"
+                            value={mockLat}
+                            onChange={(e) => setMockLat(e.target.value)}
+                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
+                          />
+                          <input
+                            type="number"
+                            step="0.000001"
+                            placeholder="Longitude"
+                            value={mockLng}
+                            onChange={(e) => setMockLng(e.target.value)}
+                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              if (mockLat && mockLng) {
+                                const mockLocation = {
+                                  lat: parseFloat(mockLat),
+                                  lng: parseFloat(mockLng)
+                                };
+                                updateMockLocation(mockLocation);
+                                setMockLat('');
+                                setMockLng('');
+                              }
+                            }}
+                            disabled={!mockLat || !mockLng}
+                            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Set Mock Location
+                          </button>
+                          <button
+                            onClick={() => {
+                              // Set to Shaolin Temple center
+                              const shaolinLocation = { lat: 34.5083, lng: 113.0362 };
+                              updateMockLocation(shaolinLocation);
+                              setMockLat(shaolinLocation.lat.toString());
+                              setMockLng(shaolinLocation.lng.toString());
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
+                          >
+                            Set to Shaolin
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -810,15 +828,28 @@ const BoundaryView = ({ onBack }) => {
                             lng: clickedLocation.lng
                           };
                           console.log('Setting test user location:', testUserLocation);
-                          setUserLocation(testUserLocation);
+                          
+                          // Use the global mock location system
+                          updateMockLocation(testUserLocation);
                         }}
                         className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
                       >
-                        Set User Location
+                        Set as Mock Location
                       </button>
                       
                       <button
-                        onClick={() => setClickedLocation(null)}
+                        onClick={() => {
+                          setClickedLocation(null);
+                          // Also remove the click marker from the map
+                          if (map) {
+                            const overlays = map.getOverlays();
+                            overlays.forEach(overlay => {
+                              if (overlay._isClickMarker) {
+                                map.removeOverlay(overlay);
+                              }
+                            });
+                          }
+                        }}
                         className="ml-2 bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
                       >
                         Clear

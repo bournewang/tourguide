@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTargetArea } from './hooks/useTargetArea';
-import { wgs84ToBaidu } from './utils/coordinateUtils';
+
 import { ttsService } from './utils/ttsService';
 
-const MapView = ({ onBack }) => {
+const MapView = () => {
   const { currentTargetArea, userLocation } = useTargetArea();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,12 +42,52 @@ const MapView = ({ onBack }) => {
     }
   };
 
-  const getUserLocationBD = () => {
-    if (!userLocation) return null;
-    return wgs84ToBaidu(userLocation.lat, userLocation.lng);
+
+
+  const handleGoToArea = () => {
+    if (!map || !currentTargetArea) return;
+
+    // Use scenic area center if available, otherwise calculate from bounds
+    let centerLng, centerLat;
+    if (currentTargetArea.center && currentTargetArea.center.lng && currentTargetArea.center.lat) {
+      centerLng = currentTargetArea.center.lng;
+      centerLat = currentTargetArea.center.lat;
+      console.log('MapView: Using predefined center:', { lat: centerLat, lng: centerLng });
+    } else {
+      // Calculate the exact center from bounds
+      centerLng = (currentTargetArea.bounds.sw.lng + currentTargetArea.bounds.ne.lng) / 2;
+      centerLat = (currentTargetArea.bounds.sw.lat + currentTargetArea.bounds.ne.lat) / 2;
+      console.log('MapView: Calculated center from bounds:', { lat: centerLat, lng: centerLng });
+    }
+    
+    const zoomLevel = currentTargetArea.level || 15;
+    const point = new window.BMap.Point(centerLng, centerLat);
+    map.centerAndZoom(point, zoomLevel);
+    console.log('MapView: Resetting to area center at:', { lat: centerLat, lng: centerLng });
   };
 
+  const handleGoToUserLocation = () => {
+    if (!map || !userLocation || !currentTargetArea?.bounds) return;
 
+    const userBD = userLocation;
+    if (!userBD) return;
+
+    const areaBounds = currentTargetArea.bounds;
+
+    // Create a new bounding box that includes both user and area
+    const sw = new window.BMap.Point(
+      Math.min(userBD.lng, areaBounds.sw.lng),
+      Math.min(userBD.lat, areaBounds.sw.lat)
+    );
+    const ne = new window.BMap.Point(
+      Math.max(userBD.lng, areaBounds.ne.lng),
+      Math.max(userBD.lat, areaBounds.ne.lat)
+    );
+
+    const newBounds = new window.BMap.Bounds(sw, ne);
+    map.setViewport(newBounds, { margins: [30, 30, 30, 30] }); // Add some padding
+    console.log('MapView: Setting viewport to include user and area');
+  };
 
   // Initialize Baidu Map with current target area
   useEffect(() => {
@@ -57,9 +97,18 @@ const MapView = ({ onBack }) => {
       // Initialize map
       const baiduMap = new window.BMap.Map('baidu-map-container');
       
-      // Use scenic area center and zoom level from data
-      const centerLng = currentTargetArea.center?.lng || 113.2;
-      const centerLat = currentTargetArea.center?.lat || 34.7;
+      // Use scenic area center if available, otherwise calculate from bounds
+      let centerLng, centerLat;
+      if (currentTargetArea.center && currentTargetArea.center.lng && currentTargetArea.center.lat) {
+        centerLng = currentTargetArea.center.lng;
+        centerLat = currentTargetArea.center.lat;
+        console.log('MapView: Initializing with predefined center:', { lat: centerLat, lng: centerLng });
+      } else {
+        // Calculate the exact center from bounds
+        centerLng = (currentTargetArea.bounds.sw.lng + currentTargetArea.bounds.ne.lng) / 2;
+        centerLat = (currentTargetArea.bounds.sw.lat + currentTargetArea.bounds.ne.lat) / 2;
+        console.log('MapView: Initializing with calculated center from bounds:', { lat: centerLat, lng: centerLng });
+      }
       const zoomLevel = currentTargetArea.level || 15;
       
       console.log('MapView: Initializing with center:', { lat: centerLat, lng: centerLng }, 'zoom level:', zoomLevel);
@@ -132,7 +181,7 @@ const MapView = ({ onBack }) => {
                   // Draw spot marker
                   ctx.beginPath();
                   ctx.arc(spotPixel.x, spotPixel.y, 5, 0, 2 * Math.PI);
-                  ctx.fillStyle = '#ef4444';
+                  ctx.fillStyle = '#f97316';
                   ctx.fill();
                   ctx.strokeStyle = '#ffffff';
                   ctx.lineWidth = 2;
@@ -164,16 +213,15 @@ const MapView = ({ onBack }) => {
     if (map && userLocation) {
       console.log('Adding user location to map');
       
-      // Remove any existing user markers first
-      const overlays = map.getOverlays();
-      overlays.forEach(overlay => {
+      // Remove existing user markers
+      map.getOverlays().forEach(overlay => {
         if (overlay._isUserMarker || overlay._isUserLabel) {
           map.removeOverlay(overlay);
         }
       });
       
-      // Convert user location to Baidu coordinates
-      const userBD = getUserLocationBD();
+      // Use BD-09 coordinates directly
+      const userBD = userLocation;
       if (!userBD) return;
       
       // Add user location marker
@@ -280,36 +328,17 @@ const MapView = ({ onBack }) => {
           <h2 className="text-xl font-semibold text-gray-800 mb-2">无法加载地图</h2>
           <p className="text-gray-600 mb-4">未找到当前景区信息</p>
         </div>
-        {/* Fixed Go Back Button */}
-        <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-lg z-50 py-3">
-          <div className="flex justify-center px-4">
-            <button
-              onClick={onBack}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
-            >
-              返回景点列表
-            </button>
-          </div>
-        </div>
       </div>
     );
   }
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white shadow-md p-4 flex items-center justify-center">
-        <h1 className="text-lg font-semibold text-gray-800 text-center w-full">
-          {currentTargetArea.name} - 景点地图
-        </h1>
-      </div>
-
       {/* Map Container */}
-      <div className="flex-1 relative pb-20"> {/* Add pb-20 for bottom button */}
+      <div className="flex-1 relative">
         <div
           id="baidu-map-container"
           className="w-full h-full"
-          style={{ minHeight: '400px' }}
         />
         
         {!mapLoaded && (
@@ -334,20 +363,24 @@ const MapView = ({ onBack }) => {
         )}
       </div>
 
-      {/* Fixed Go Back Button */}
-      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-lg z-50 py-1">
-            <div className="flex items-center gap-2 justify-center px-4 py-2">
-            <span>🔴 景点位置</span>
-            {userLocation && <span>📍 我的位置</span>}
-          </div> 
-          <div className="flex flex-col sm:flex-row gap-2 justify-center px-4">
+      {/* Map Control Buttons - Bottom Right */}
+      <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-2">
+        <button
+          onClick={handleGoToArea}
+          className="bg-white hover:bg-gray-50 text-gray-700 p-3 rounded-full shadow-lg border border-gray-200 transition-colors duration-200 flex items-center justify-center"
+          title="回到景区中心"
+        >
+          🏔️
+        </button>
+        {userLocation && (
           <button
-            onClick={onBack}
-            className="w-100 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
+            onClick={handleGoToUserLocation}
+            className="bg-white hover:bg-gray-50 text-gray-700 p-3 rounded-full shadow-lg border border-gray-200 transition-colors duration-200 flex items-center justify-center"
+            title="定位到我的位置"
           >
-            返回景点列表
+            🔴
           </button>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
-import { wgs84ToBaidu, calculateDistance, formatDistance } from './utils/coordinateUtils';
+import { calculateDistance, formatDistance } from './utils/coordinateUtils';
 import { ttsService } from './utils/ttsService';
 import { getValidationStatus, formatValidationStatus } from './utils/validationStatus';
 
-function SpotList({ onSpotClick, onShowBoundaries, onShowMap, isDebugMode = false }) {
+function SpotList() {
+  const navigate = useNavigate();
   const { currentTargetArea, userLocation, locationError, scenicAreas, setTargetArea } = useTargetArea();
   const [spots, setSpots] = useState([]);
   const [spotsWithDistance, setSpotsWithDistance] = useState([]);
@@ -139,18 +141,13 @@ function SpotList({ onSpotClick, onShowBoundaries, onShowMap, isDebugMode = fals
   // Calculate distances when user location or spots change
   useEffect(() => {
     if (userLocation && spots.length > 0) {
-      console.log('Calculating distances for spots');
-      
-      // Convert user location from WGS-84 to Baidu for consistent coordinate system
-      const userLocationBaidu = wgs84ToBaidu(userLocation.lat, userLocation.lng);
-      // setUserLocationBD(userLocationBaidu); // This line is removed as per the edit hint
-      console.log('User location converted to Baidu:', userLocationBaidu.lng, userLocationBaidu.lat);
+      console.log('Calculating distances for spots using BD-09 coordinates');
       
       const spotsWithDist = spots.map(spot => {
-        // Both user location and spot coordinates are now in Baidu format
+        // Both user location and spot coordinates are in Baidu format
         return {
           ...spot,
-          distance: calculateDistance(userLocationBaidu.lat, userLocationBaidu.lng, spot.location.lat, spot.location.lng)
+          distance: calculateDistance(userLocation.lat, userLocation.lng, spot.location.lat, spot.location.lng)
         };
       }).sort((a, b) => a.distance - b.distance);
 
@@ -161,12 +158,12 @@ function SpotList({ onSpotClick, onShowBoundaries, onShowMap, isDebugMode = fals
     }
   }, [userLocation, spots]);
 
-  // Handle location errors
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      // setLocationError('浏览器不支持定位功能'); // This line is removed as per the edit hint
-    }
-  }, []);
+  const handleSpotClick = (spot) => {
+    // Navigate to spot detail page with spot ID
+    navigate(`/spot/${encodeURIComponent(spot.name)}`, { 
+      state: { spot } // Pass spot data as state
+    });
+  };
 
   if (loading) {
     return (
@@ -223,12 +220,8 @@ function SpotList({ onSpotClick, onShowBoundaries, onShowMap, isDebugMode = fals
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <div className="flex-1 overflow-y-auto px-2 pb-28"> {/* Add pb-28 for bottom padding */}
+      <div className="flex-1 overflow-y-auto px-2 pb-4"> {/* Reduced bottom padding since nav is handled by Layout */}
         <div className="max-w-3xl mx-auto px-4">
-          <h1 className="text-3xl font-bold text-center mb-4 text-gray-800">
-            🏯 {currentTargetArea?.name || '景点导览'}
-          </h1>
-          
           {/* Scenic Area Description */}
           {currentTargetArea && currentTargetArea.description && (
             <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
@@ -262,24 +255,22 @@ function SpotList({ onSpotClick, onShowBoundaries, onShowMap, isDebugMode = fals
           
           {/* Location status */}
           {locationError ? (
-        
-              <div className="fixed bottom-14 left-0 w-full bg-white border-t border-gray-200 shadow-lg z-50 py-3">
-                <div className="flex flex-col sm:flex-row gap-2 justify-center px-4">
-                {scenicAreas.length > 1 ? (
-                  <>
-                    <button
-                      onClick={() => setShowAreaModal(true)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                    >
-                      📍 无法获取位置，{locationError}, 选择景区
-                    </button>
-                  </>
-                ) : (
-                  <p className="text-xs text-gray-500">
-                    系统将使用默认景区
-                  </p>
-                )}
-              </div>
+            <div className="bg-red-50 rounded-xl p-3 mb-4 text-center shadow-sm">
+              <p className="text-sm text-red-600 mb-2">
+                📍 无法获取位置，{locationError}
+              </p>
+              {scenicAreas.length > 1 ? (
+                <button
+                  onClick={() => setShowAreaModal(true)}
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                >
+                  选择景区
+                </button>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  系统将使用默认景区
+                </p>
+              )}
             </div>
           ) : userLocation ? (
             <></>
@@ -362,7 +353,7 @@ function SpotList({ onSpotClick, onShowBoundaries, onShowMap, isDebugMode = fals
                 <div
                   key={index}
                   className="bg-white rounded-xl p-4 flex items-center space-x-4 hover:shadow-lg cursor-pointer shadow-sm transition-all duration-200 hover:-translate-y-1"
-                  onClick={() => onSpotClick && onSpotClick(spot)}
+                  onClick={() => handleSpotClick(spot)}
                 >
                   <img
                     src={spot.image_thumb || '/spot-default.jpg'}
@@ -394,6 +385,8 @@ function SpotList({ onSpotClick, onShowBoundaries, onShowMap, isDebugMode = fals
             )}
           </div>
         </div>
+        
+        {/* Status Information */}
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
             👆 点击任意景点查看详情和听取讲解
@@ -417,29 +410,9 @@ function SpotList({ onSpotClick, onShowBoundaries, onShowMap, isDebugMode = fals
             </div>
           )}
 
-
           {userLocation && <p className="text-xs text-gray-500">
               {userLocation.lng.toFixed(6)}°, {userLocation.lat.toFixed(6)}°
             </p>}
-        </div>
-      </div>
-      {/* Fixed Map Button at Bottom */}
-      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-lg z-50 py-3">
-        <div className="flex flex-col sm:flex-row gap-2 justify-center px-4">
-          <button
-            onClick={onShowMap}
-            className="bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded-xl text-sm font-semibold shadow-md transition-colors duration-200 flex items-center justify-center"
-          >
-            🗺️ 景点地图
-          </button>
-          {isDebugMode && (
-            <button
-              onClick={onShowBoundaries}
-              className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-xl text-sm font-semibold shadow-md transition-colors duration-200 flex items-center justify-center"
-            >
-              🗺️ 景区边界查看
-            </button>
-          )}
         </div>
       </div>
     </div>

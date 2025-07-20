@@ -1,17 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useHowlerAudio } from './hooks/useHowlerAudio';
 import { dataService } from './utils/dataService';
 
-function SpotDetail({ spot, onBack }) {
+function SpotDetail() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get spot data from location state or fallback
+  const spot = location.state?.spot || null;
+  
   const [videoError, setVideoError] = useState(false);
   const [mediaType, setMediaType] = useState('video'); // 'video', 'imageSequence', or 'audio'
   const [showControls, setShowControls] = useState(false);
   const videoRef = useRef(null);
 
+  // If no spot data, redirect back to list
+  useEffect(() => {
+    if (!spot) {
+      console.warn('No spot data found, redirecting to list');
+      navigate('/', { replace: true });
+    }
+  }, [spot, navigate]);
+
   // Get media files directly from spot data
-  const audioFile = dataService.resolveAudioUrl(spot.audioFile);
-  const videoFile = spot.videoFile ? `/video/${spot.videoFile}` : null;
-  const imageSequence = spot.imageSequence || null;
+  const audioFile = spot ? dataService.resolveAudioUrl(spot.audioFile) : null;
+  const videoFile = spot?.videoFile ? `/video/${spot.videoFile}` : null;
+  const imageSequence = spot?.imageSequence || null;
 
   // Use Howler hook for audio and image sequence
   const {
@@ -131,6 +146,8 @@ function SpotDetail({ spot, onBack }) {
 
   // Auto-play media when component mounts
   useEffect(() => {
+    if (!spot) return;
+    
     window.scrollTo(0, 0);
     
     const timer = setTimeout(() => {
@@ -151,8 +168,20 @@ function SpotDetail({ spot, onBack }) {
     };
   }, [spot]);
 
+  // Show loading if no spot data
+  if (!spot) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-4"> {/* Reduced bottom padding since nav is handled by Layout */}
       <div className="max-w-4xl mx-auto px-4 py-4">
         {/* Title */}
         <h1 className="text-3xl font-bold text-center mb-4 text-gray-800">
@@ -358,16 +387,6 @@ function SpotDetail({ spot, onBack }) {
             {spot.description || '暂无详细介绍'}
           </p>
         </div>
-      </div>
-
-      {/* Fixed Back Button at Bottom */}
-      <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-sm shadow-lg">
-        <button
-          onClick={onBack}
-          className="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-xl text-lg font-semibold shadow-md transition-colors duration-200"
-        >
-          ← 返回景点列表
-        </button>
       </div>
     </div>
   );
