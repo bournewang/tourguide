@@ -26,7 +26,7 @@ const BoundaryView = () => {
   const [allDataLoaded, setAllDataLoaded] = useState(false);
   const [clickedLocation, setClickedLocation] = useState(null);
   const [cacheStatus, setCacheStatus] = useState(null);
-  const [showTestControls, setShowTestControls] = useState(false);
+  const [showTestControls] = useState(false);
   const [mockLat, setMockLat] = useState('');
   const [mockLng, setMockLng] = useState('');
   const clickHandlerRef = useRef(null);
@@ -91,11 +91,15 @@ const BoundaryView = () => {
 
 
 
-  const isPointInBounds = (point, bounds) => {
-    return point.lat >= bounds.sw.lat && 
-           point.lat <= bounds.ne.lat && 
-           point.lng >= bounds.sw.lng && 
-           point.lng <= bounds.ne.lng;
+  // Remove all fallback and bounds logic, only use center/radius for all area operations
+
+  // 1. Update isPointInBounds to only use center/radius
+  const isPointInBounds = (point, area) => {
+    const centerLat = area.center.lat;
+    const centerLng = area.center.lng;
+    const radius = area.radius;
+    const distance = calculateDistance(point.lat, point.lng, centerLat, centerLng);
+    return distance <= radius;
   };
 
   const calculateDistance = (lat1, lng1, lat2, lng2) => {
@@ -125,10 +129,10 @@ const BoundaryView = () => {
     let minLng = Infinity, maxLng = -Infinity;
     
     scenicAreas.forEach(area => {
-      minLat = Math.min(minLat, area.bounds.sw.lat);
-      maxLat = Math.max(maxLat, area.bounds.ne.lat);
-      minLng = Math.min(minLng, area.bounds.sw.lng);
-      maxLng = Math.max(maxLng, area.bounds.ne.lng);
+      minLat = Math.min(minLat, area.center.lat);
+      maxLat = Math.max(maxLat, area.center.lat);
+      minLng = Math.min(minLng, area.center.lng);
+      maxLng = Math.max(maxLng, area.center.lng);
     });
     
     // Add padding
@@ -183,41 +187,58 @@ const BoundaryView = () => {
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
           
           
-          // Draw each scenic area boundary
+          // Draw each scenic area boundary as circles
           scenicAreas.forEach((area) => {
-            const points = [
-              new window.BMap.Point(area.bounds.sw.lng, area.bounds.sw.lat),
-              new window.BMap.Point(area.bounds.ne.lng, area.bounds.sw.lat),
-              new window.BMap.Point(area.bounds.ne.lng, area.bounds.ne.lat),
-              new window.BMap.Point(area.bounds.sw.lng, area.bounds.ne.lat)
-            ];
-            
-            // Convert points to pixels
-            const pixelPoints = points.map(point => baiduMap.pointToPixel(point));
-            
-            // Draw boundary
+            const centerPoint = new window.BMap.Point(area.center.lng, area.center.lat);
+            const centerPixel = baiduMap.pointToPixel(centerPoint);
+            const radiusInMeters = area.radius;
+            // Convert radius from meters to pixels
+            const radiusPoint = new window.BMap.Point(
+              centerPoint.lng + (radiusInMeters / 111320 / Math.cos(centerPoint.lat * Math.PI / 180)),
+              centerPoint.lat + (radiusInMeters / 111320)
+            );
+            const radiusPixel = baiduMap.pointToPixel(radiusPoint);
+            const radiusInPixels = Math.sqrt(
+              Math.pow(centerPixel.x - radiusPixel.x, 2) + 
+              Math.pow(centerPixel.y - radiusPixel.y, 2)
+            );
+            // Draw circle boundary
             ctx.beginPath();
-            ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
-            pixelPoints.forEach((point) => {
-              ctx.lineTo(point.x, point.y);
-            });
-            ctx.closePath();
-            
-            // Style based on selection
+            ctx.arc(centerPixel.x, centerPixel.y, radiusInPixels, 0, 2 * Math.PI);
             const isSelected = selectedArea?.name === area.name;
             ctx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.3)' : 'rgba(156, 163, 175, 0.2)';
             ctx.fill();
             ctx.strokeStyle = isSelected ? '#3b82f6' : '#6b7280';
             ctx.lineWidth = isSelected ? 3 : 2;
             ctx.stroke();
-            
+
+            // Draw center marker as a cross
+            const crossColor = isSelected ? '#2563eb' : '#6b7280';
+            const crossSize = 6; // half-length of cross arms (total 12px)
+            ctx.save();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            // White outline (thicker)
+            ctx.beginPath();
+            ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
+            ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
+            ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
+            ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
+            ctx.stroke();
+            ctx.restore();
+            ctx.save();
+            ctx.strokeStyle = crossColor;
+            ctx.lineWidth = 2;
+            // Colored cross (thinner)
+            ctx.beginPath();
+            ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
+            ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
+            ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
+            ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
+            ctx.stroke();
+            ctx.restore();
+
             // Add area name label
-            const centerPoint = new window.BMap.Point(
-              (area.bounds.sw.lng + area.bounds.ne.lng) / 2,
-              (area.bounds.sw.lat + area.bounds.ne.lat) / 2
-            );
-            const centerPixel = baiduMap.pointToPixel(centerPoint);
-            
             ctx.fillStyle = isSelected ? '#3b82f6' : '#333';
             ctx.font = '14px Arial';
             ctx.textAlign = 'center';
@@ -258,14 +279,14 @@ const BoundaryView = () => {
                     // console.log(`✅ Successfully drew spot: ${spot.name} at (${spotPixel.x}, ${spotPixel.y})`);
                     
                     // Draw spot name if zoomed in enough
-                    // const zoom = baiduMap.getZoom();
-                    // if (zoom >= 12) {
-                    //   ctx.fillStyle = '#333';
-                    //   ctx.font = '10px Arial';
-                    //   ctx.textAlign = 'center';
-                    //   ctx.textBaseline = 'top';
-                    //   ctx.fillText(spot.name, spotPixel.x, spotPixel.y + 8);
-                    // }
+                    const zoom = baiduMap.getZoom();
+                    if (zoom >= 12) {
+                      ctx.fillStyle = '#333';
+                      ctx.font = '10px Arial';
+                      ctx.textAlign = 'center';
+                      ctx.textBaseline = 'top';
+                      ctx.fillText(spot.name, spotPixel.x, spotPixel.y + 8);
+                    }
                   } else {
                     console.log('❌ Invalid pixel coordinates for spot:', spot.name, spotPixel);
                   }
@@ -306,7 +327,7 @@ const BoundaryView = () => {
         /*
         let areaSelected = false;
         scenicAreas.forEach((area) => {
-          if (isPointInBounds(clickPoint, area.bounds)) {
+          if (isPointInBounds(clickPoint, area)) {
             console.log('Area clicked:', area.name);
             setSelectedArea(selectedArea?.name === area.name ? null : area);
             areaSelected = true;
@@ -486,23 +507,20 @@ const BoundaryView = () => {
     }
   }, [userLocation, scenicAreas, isTestMode]);
 
+  // 3. Update getNearestArea to only use center
   const getNearestArea = () => {
     if (!userLocation) return null;
-    
     let nearest = null;
     let minDistance = Infinity;
-    
     scenicAreas.forEach(area => {
-      const centerLat = (area.bounds.sw.lat + area.bounds.ne.lat) / 2;
-      const centerLng = (area.bounds.sw.lng + area.bounds.ne.lng) / 2;
+      const centerLat = area.center.lat;
+      const centerLng = area.center.lng;
       const distance = calculateDistance(userLocation.lat, userLocation.lng, centerLat, centerLng);
-      
       if (distance < minDistance) {
         minDistance = distance;
         nearest = { ...area, distance };
       }
     });
-    
     return nearest;
   };
 
@@ -512,7 +530,7 @@ const BoundaryView = () => {
     console.log('Auto-selecting scenic area based on user location:', userLocation);
     
     // First, check if user is inside any scenic area boundary
-    const currentArea = scenicAreas.find(area => isPointInBounds(userLocation, area.bounds));
+    const currentArea = scenicAreas.find(area => isPointInBounds(userLocation, area));
     
     if (currentArea) {
       console.log('User is inside scenic area:', currentArea);
@@ -587,7 +605,7 @@ const BoundaryView = () => {
       {/* Header */}
       <div className="text-center p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white relative">
         <h1 className="text-2xl font-bold mb-1">🗺️ Scenic Area Boundaries</h1>
-        <p className="text-sm opacity-90">View and explore the boundaries of all scenic areas</p>
+        <p className="text-sm opacity-90">View and explore the circular boundaries of all scenic areas</p>
         
         {/* Debug Mode Exit Button */}
         {isDebugMode && (
@@ -646,11 +664,11 @@ const BoundaryView = () => {
               <div className="absolute top-4 right-4 bg-white bg-opacity-90 p-3 rounded-lg shadow-md text-sm">
                 <div className="font-semibold mb-2">Legend</div>
                 <div className="flex items-center mb-1">
-                  <div className="w-4 h-4 bg-blue-500 bg-opacity-30 border-2 border-blue-500 mr-2"></div>
+                  <div className="w-4 h-4 bg-blue-500 bg-opacity-30 border-2 border-blue-500 rounded-full mr-2"></div>
                   <span>Selected Area</span>
                 </div>
                 <div className="flex items-center mb-1">
-                  <div className="w-4 h-4 bg-gray-500 bg-opacity-20 border-2 border-gray-500 mr-2"></div>
+                  <div className="w-4 h-4 bg-gray-500 bg-opacity-20 border-2 border-gray-500 rounded-full mr-2"></div>
                   <span>Other Areas</span>
                 </div>
                 {showSpots && (
@@ -678,10 +696,16 @@ const BoundaryView = () => {
                 
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-semibold text-gray-700 mb-2">Boundary Coordinates</h4>
+                    <h4 className="font-semibold text-gray-700 mb-2">Boundary Information</h4>
                     <div className="bg-gray-50 p-3 rounded-lg text-sm font-mono">
-                      <div>SW: {selectedArea.bounds.sw.lat.toFixed(6)}, {selectedArea.bounds.sw.lng.toFixed(6)}</div>
-                      <div>NE: {selectedArea.bounds.ne.lat.toFixed(6)}, {selectedArea.bounds.ne.lng.toFixed(6)}</div>
+                      {selectedArea.center && selectedArea.radius ? (
+                        <>
+                          <div>Center: {selectedArea.center.lat.toFixed(6)}, {selectedArea.center.lng.toFixed(6)}</div>
+                          <div>Radius: {formatDistance(selectedArea.radius)}</div>
+                        </>
+                      ) : (
+                        <div className="text-red-500">No boundary data available</div>
+                      )}
                     </div>
                   </div>
                   
@@ -691,8 +715,10 @@ const BoundaryView = () => {
                       <div><span className="font-medium">Spots File:</span> {selectedArea.spotsFile}</div>
                       <div><span className="font-medium">Spots Count:</span> {spots[selectedArea.name]?.length || 0} spots</div>
                       <div><span className="font-medium">Center:</span> 
-                        {((selectedArea.bounds.sw.lat + selectedArea.bounds.ne.lat) / 2).toFixed(6)}, 
-                        {((selectedArea.bounds.sw.lng + selectedArea.bounds.ne.lng) / 2).toFixed(6)}
+                        {selectedArea.center ? 
+                          `${selectedArea.center.lat.toFixed(6)}, ${selectedArea.center.lng.toFixed(6)}` :
+                          'N/A'
+                        }
                       </div>
                     </div>
                   </div>
@@ -873,8 +899,7 @@ const BoundaryView = () => {
                           <div className="text-blue-600 font-medium">
                             {formatDistance(calculateDistance(
                               userLocation.lat, userLocation.lng,
-                              (currentTargetArea.bounds.sw.lat + currentTargetArea.bounds.ne.lat) / 2,
-                              (currentTargetArea.bounds.sw.lng + currentTargetArea.bounds.ne.lng) / 2
+                              currentTargetArea.center.lat, currentTargetArea.center.lng
                             ))}
                           </div>
                         </div>

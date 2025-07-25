@@ -523,13 +523,15 @@ function NarrationEditor() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Editor */}
-        <div className="flex-1 flex flex-col bg-white m-4 rounded-lg shadow-sm">
+        <div className="flex-1 flex flex-col bg-white m-4 rounded-lg shadow-sm overflow-hidden">
           {selectedSpot ? (
             <>
-              {/* Spot Info Header */}
-              <div className="p-6 border-b">
+              {/* Scrollable Content Area */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Spot Info Header */}
+                <div className="p-6 border-b">
                 <div className="flex items-start gap-4">
                   <div className="flex-1">
                     <h2 className="text-xl font-semibold text-gray-800">{selectedSpot.name}</h2>
@@ -617,7 +619,7 @@ function NarrationEditor() {
                   value={narrationText}
                   onChange={(e) => handleNarrationChange(e.target.value)}
                   placeholder="请输入导游词文本..."
-                  className="w-full h-32 p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full h-32 p-3 border border-gray-300 rounded-md resize-y focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <div className="mt-2 text-sm text-gray-500">
                   字数: {narrationText.length}
@@ -810,6 +812,7 @@ function NarrationEditor() {
                     </div>
                   </div>
                 )}
+              </div>
               </div>
             </>
           ) : (

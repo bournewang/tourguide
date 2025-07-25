@@ -100,7 +100,7 @@ compress_to_jpg() {
     local target_width=900 # Target width in pixels
     
     # Resize to 900px width and try different quality levels
-    for quality in 70 65 60 55 50 45 40 35 30 25 20; do
+    for quality in 90 85 80 75 70 65 60 55 50 45 40 35 30 25 20; do
         if magick "$input_file" -resize "${target_width}x" -quality $quality "$output_file" 2>/dev/null; then
             local file_size=$(stat -f%z "$output_file" 2>/dev/null || stat -c%s "$output_file" 2>/dev/null)
             

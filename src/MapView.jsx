@@ -12,6 +12,9 @@ const MapView = () => {
   const [spots, setSpots] = useState([]);
   const [allDataLoaded, setAllDataLoaded] = useState(false);
   const spotsRef = useRef([]);
+  const [userHeading, setUserHeading] = useState(0); // degrees
+  const [orientationAvailable, setOrientationAvailable] = useState(false); // track if orientation is available
+  const hasAutoCentered = useRef(false); // NEW: track if we've auto-centered
 
   const BAIDU_API_KEY = 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv';
 
@@ -53,11 +56,6 @@ const MapView = () => {
       centerLng = currentTargetArea.center.lng;
       centerLat = currentTargetArea.center.lat;
       console.log('MapView: Using predefined center:', { lat: centerLat, lng: centerLng });
-    } else {
-      // Calculate the exact center from bounds
-      centerLng = (currentTargetArea.bounds.sw.lng + currentTargetArea.bounds.ne.lng) / 2;
-      centerLat = (currentTargetArea.bounds.sw.lat + currentTargetArea.bounds.ne.lat) / 2;
-      console.log('MapView: Calculated center from bounds:', { lat: centerLat, lng: centerLng });
     }
     
     const zoomLevel = currentTargetArea.level || 15;
@@ -67,26 +65,15 @@ const MapView = () => {
   };
 
   const handleGoToUserLocation = () => {
-    if (!map || !userLocation || !currentTargetArea?.bounds) return;
+    if (!map || !userLocation) return;
 
     const userBD = userLocation;
     if (!userBD) return;
 
-    const areaBounds = currentTargetArea.bounds;
-
-    // Create a new bounding box that includes both user and area
-    const sw = new window.BMap.Point(
-      Math.min(userBD.lng, areaBounds.sw.lng),
-      Math.min(userBD.lat, areaBounds.sw.lat)
-    );
-    const ne = new window.BMap.Point(
-      Math.max(userBD.lng, areaBounds.ne.lng),
-      Math.max(userBD.lat, areaBounds.ne.lat)
-    );
-
-    const newBounds = new window.BMap.Bounds(sw, ne);
-    map.setViewport(newBounds, { margins: [30, 30, 30, 30] }); // Add some padding
-    console.log('MapView: Setting viewport to include user and area');
+    // Center the map on the user and set zoom to 17
+    const userPoint = new window.BMap.Point(userBD.lng, userBD.lat);
+    map.centerAndZoom(userPoint, 17);
+    console.log('MapView: Centered on user location at level 17');
   };
 
   // Initialize Baidu Map with current target area
@@ -103,11 +90,6 @@ const MapView = () => {
         centerLng = currentTargetArea.center.lng;
         centerLat = currentTargetArea.center.lat;
         console.log('MapView: Initializing with predefined center:', { lat: centerLat, lng: centerLng });
-      } else {
-        // Calculate the exact center from bounds
-        centerLng = (currentTargetArea.bounds.sw.lng + currentTargetArea.bounds.ne.lng) / 2;
-        centerLat = (currentTargetArea.bounds.sw.lat + currentTargetArea.bounds.ne.lat) / 2;
-        console.log('MapView: Initializing with calculated center from bounds:', { lat: centerLat, lng: centerLng });
       }
       const zoomLevel = currentTargetArea.level || 15;
       
@@ -133,32 +115,56 @@ const MapView = () => {
           
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
           
-          // Draw current target area boundary
+          // Draw current target area boundary (circle) and center cross
           if (currentTargetArea) {
-            // (points variable removed as it was unused)
-            
-            // // Draw boundary
-            // ctx.beginPath();
-            // ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
-            // pixelPoints.forEach((point) => {
-            //   ctx.lineTo(point.x, point.y);
-            // });
-            // ctx.closePath();
-            
-            // // Style for current area (highlighted)
-            // ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
-            // ctx.fill();
-            // ctx.strokeStyle = '#3b82f6';
-            // ctx.lineWidth = 3;
-            // ctx.stroke();
-            
-            // Add area name label
             const centerPoint = new window.BMap.Point(
-              (currentTargetArea.bounds.sw.lng + currentTargetArea.bounds.ne.lng) / 2,
-              (currentTargetArea.bounds.sw.lat + currentTargetArea.bounds.ne.lat) / 2
+              currentTargetArea.center.lng,
+              currentTargetArea.center.lat
             );
             const centerPixel = baiduMap.pointToPixel(centerPoint);
-            
+            const radiusInMeters = currentTargetArea.radius;
+            // Convert radius from meters to pixels
+            const radiusPoint = new window.BMap.Point(
+              centerPoint.lng + (radiusInMeters / 111320 / Math.cos(centerPoint.lat * Math.PI / 180)),
+              centerPoint.lat + (radiusInMeters / 111320)
+            );
+            const radiusPixel = baiduMap.pointToPixel(radiusPoint);
+            const radiusInPixels = Math.sqrt(
+              Math.pow(centerPixel.x - radiusPixel.x, 2) +
+              Math.pow(centerPixel.y - radiusPixel.y, 2)
+            );
+            // Draw circle boundary
+            ctx.beginPath();
+            ctx.arc(centerPixel.x, centerPixel.y, radiusInPixels, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+            ctx.fill();
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            // Draw center marker as a cross
+            const crossColor = '#2563eb';
+            const crossSize = 6;
+            ctx.save();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
+            ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
+            ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
+            ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
+            ctx.stroke();
+            ctx.restore();
+            ctx.save();
+            ctx.strokeStyle = crossColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
+            ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
+            ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
+            ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
+            ctx.stroke();
+            ctx.restore();
+            // Add area name label
             ctx.fillStyle = '#3b82f6';
             ctx.font = '16px Arial';
             ctx.textAlign = 'center';
@@ -186,7 +192,7 @@ const MapView = () => {
                   ctx.strokeStyle = '#ffffff';
                   ctx.lineWidth = 2;
                   ctx.stroke();
-                  totalSpotsDrawn++;
+                  totalSpotsDrawn++; 
                   
                   // Draw spot name
                 //   ctx.fillStyle = '#333';
@@ -208,50 +214,120 @@ const MapView = () => {
     }
   }, [mapLoaded, map, currentTargetArea, allDataLoaded]);
 
+  // Listen for device orientation only
+  useEffect(() => {
+    console.log('MapView: Setting up device orientation listeners');
+    
+    function handleOrientation(event) {
+      let heading = null;
+      if (typeof event.webkitCompassHeading === 'number') {
+        // iOS: webkitCompassHeading is absolute compass heading
+        heading = event.webkitCompassHeading;
+        console.log('MapView: Device orientation (iOS webkitCompassHeading):', heading);
+      } else if (typeof event.alpha === 'number') {
+        // Android: alpha is 0 at north, increases clockwise
+        heading = 360 - event.alpha;
+        console.log('MapView: Device orientation (alpha):', heading);
+      }
+      if (typeof heading === 'number' && !isNaN(heading)) {
+        setUserHeading((heading + 360) % 360);
+      }
+    }
+
+    // Clear any existing listeners first
+    window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
+    window.removeEventListener('deviceorientation', handleOrientation, true);
+
+    // iOS 13+ requires permission for device orientation
+    if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function') {
+      console.log('MapView: iOS detected, requesting device orientation permission...');
+      window.DeviceOrientationEvent.requestPermission().then(result => {
+        console.log('MapView: Device orientation permission result:', result);
+        if (result === 'granted') {
+          console.log('MapView: Permission granted, adding orientation listeners');
+          window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+          window.addEventListener('deviceorientation', handleOrientation, true);
+          setOrientationAvailable(true);
+        } else {
+          console.log('MapView: Permission denied, will use dot marker');
+          setOrientationAvailable(false);
+        }
+      }).catch(error => {
+        console.error('MapView: Failed to get device orientation permission:', error);
+        setOrientationAvailable(false);
+      });
+    } else {
+      // Android and older iOS versions don't need permission
+      console.log('MapView: No permission required, adding orientation listeners');
+      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.addEventListener('deviceorientation', handleOrientation, true);
+      setOrientationAvailable(true);
+    }
+
+    return () => {
+      console.log('MapView: Cleaning up orientation listeners');
+      window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.removeEventListener('deviceorientation', handleOrientation, true);
+    };
+  }, []);
+
   // Handle user location updates separately
   useEffect(() => {
     if (map && userLocation) {
       console.log('Adding user location to map');
-      
       // Remove existing user markers
       map.getOverlays().forEach(overlay => {
         if (overlay._isUserMarker || overlay._isUserLabel) {
           map.removeOverlay(overlay);
         }
       });
-      
       // Use BD-09 coordinates directly
       const userBD = userLocation;
       if (!userBD) return;
+      // Use arrow if orientation available, otherwise use dot
+      const headingToUse = userHeading;
+      console.log('Orientation available:', orientationAvailable, 'Using device orientation heading:', headingToUse);
       
-      // Add user location marker
+      let markerIcon;
+      if (orientationAvailable) {
+        // Arrow SVG marker
+        const arrowSvg = (heading = 0) => {
+          const svg = `<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(${heading},16,16)"><polygon points="16,4 28,28 16,22 4,28" fill="#ef4444" stroke="#fff" stroke-width="2"/></g></svg>`;
+          return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        };
+        markerIcon = new window.BMap.Icon(arrowSvg(headingToUse), new window.BMap.Size(32, 32));
+      } else {
+        // Red dot SVG marker
+        const dotSvg = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8" fill="#ef4444" stroke="#fff" stroke-width="2"/></svg>`;
+        markerIcon = new window.BMap.Icon('data:image/svg+xml;utf8,' + encodeURIComponent(dotSvg), new window.BMap.Size(24, 24));
+      }
+      
+      // Add user location marker (arrow or dot)
       const userPoint = new window.BMap.Point(userBD.lng, userBD.lat);
       const userMarker = new window.BMap.Marker(userPoint, {
-        icon: new window.BMap.Icon('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiNlZjQ0NDQiLz4KPHBhdGggZD0iTTEyIDZDNi40OCA2IDIgMTAuNDggMiAxNkMyIDIxLjUyIDYuNDggMjYgMTIgMjZDMjEuNTIgMjYgMjYgMjEuNTIgMjYgMTZDMjYgMTAuNDggMjEuNTIgNiAxMiA2WiIgZmlsbD0iI2VmNDQ0NCIgZmlsbC1vcGFjaXR5PSIwLjMiLz4KPC9zdmc+', new window.BMap.Size(24, 24))
+        icon: markerIcon
       });
       userMarker._isUserMarker = true;
       map.addOverlay(userMarker);
-      
-      // Add "You" label
-      const userLabel = new window.BMap.Label('You', {
-        offset: new window.BMap.Size(0, -30)
-      });
-      userLabel.setStyle({
-        color: '#ef4444',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        border: '1px solid #ef4444',
-        padding: '2px 6px',
-        borderRadius: '3px'
-      });
-      userLabel._isUserLabel = true;
-      
-      map.addOverlay(userLabel);
-      userLabel.setPosition(userPoint);
-      console.log('User location added to map successfully');
+      // Add "当前位置" label
+      // const userLabel = new window.BMap.Label('当前位置', {
+      //   offset: new window.BMap.Size(0, -36)
+      // });
+      // userLabel.setStyle({
+      //   color: '#ef4444',
+      //   fontSize: '12px',
+      //   fontWeight: 'bold',
+      //   backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      //   border: '1px solid #ef4444',
+      //   padding: '2px 6px',
+      //   borderRadius: '3px'
+      // });
+      // userLabel._isUserLabel = true;
+      // map.addOverlay(userLabel);
+      // userLabel.setPosition(userPoint);
+      console.log('User location marker added to map successfully, orientation available:', orientationAvailable, 'heading:', headingToUse);
     }
-  }, [map, userLocation]);
+  }, [map, userLocation, userHeading, orientationAvailable]);
 
   // Load Baidu Map API
   useEffect(() => {
@@ -296,6 +372,16 @@ const MapView = () => {
       map.setViewport(currentViewport);
     }
   }, [spots, map]);
+
+  // Auto-center on user location ONCE when available
+  useEffect(() => {
+    if (map && userLocation && !hasAutoCentered.current) {
+      const userPoint = new window.BMap.Point(userLocation.lng, userLocation.lat);
+      map.centerAndZoom(userPoint, 17);
+      hasAutoCentered.current = true;
+      console.log('MapView: Auto-centered on user location at zoom 17');
+    }
+  }, [map, userLocation]);
 
   if (loading || !allDataLoaded) {
     return (

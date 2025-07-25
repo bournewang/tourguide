@@ -356,7 +356,7 @@ function SpotList() {
                   onClick={() => handleSpotClick(spot)}
                 >
                   <img
-                    src={spot.image_thumb || '/spot-default.jpg'}
+                    src={spot.thumbnail || '/spot-default.jpg'}
                     alt={spot.name}
                     className="w-16 h-16 object-cover rounded-lg"
                     onError={(e) => {

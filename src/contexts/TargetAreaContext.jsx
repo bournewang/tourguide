@@ -189,15 +189,15 @@ export const TargetAreaProvider = ({ children }) => {
             newLocation.lng
           );
           
-        console.log(`Spots distance calculation: ${spotsDistance.toFixed(2)}m (threshold: 10m)`);
+        console.log(`Spots distance calculation: ${spotsDistance.toFixed(2)}m (threshold: 3m)`);
           
-        if (spotsDistance >= 10) {
+        if (spotsDistance >= 3) {
           console.log(`✅ Moved ${spotsDistance.toFixed(1)}m, triggering spots recalculation`);
           lastSpotsCalculationRef.current = newLocation;
           // Only update userLocation when movement exceeds threshold
           updateUserLocationCoordinates(newLocation, false);
         } else {
-          console.log(`❌ Movement ${spotsDistance.toFixed(1)}m is below 10m threshold, NOT triggering spots recalculation`);
+          console.log(`❌ Movement ${spotsDistance.toFixed(1)}m is below 3m threshold, NOT triggering spots recalculation`);
           // Don't update userLocation for small movements
         }
         } else {
@@ -282,54 +282,42 @@ export const TargetAreaProvider = ({ children }) => {
     return R * c;
   };
 
-  const isPointInBounds = (pointBaidu, bounds) => {
-    // Both point and bounds are now in Baidu coordinate system
-    return pointBaidu.lat >= bounds.sw.lat && 
-           pointBaidu.lat <= bounds.ne.lat && 
-           pointBaidu.lng >= bounds.sw.lng && 
-           pointBaidu.lng <= bounds.ne.lng;
+  const isPointInBounds = (pointBaidu, area) => {
+    // Use center/radius only
+    const centerLat = area.center.lat;
+    const centerLng = area.center.lng;
+    const radius = area.radius;
+    const distance = calculateDistance(pointBaidu.lat, pointBaidu.lng, centerLat, centerLng);
+    return distance <= radius;
   };
 
   const getNearestArea = (userLocationBaidu) => {
     if (!userLocationBaidu) return null;
-    
     let nearest = null;
     let minDistance = Infinity;
-    
     scenicAreas.forEach(area => {
-      // Both user location and area bounds are in Baidu BD-09, calculate center
-      const centerLat = (area.bounds.sw.lat + area.bounds.ne.lat) / 2;
-      const centerLng = (area.bounds.sw.lng + area.bounds.ne.lng) / 2;
-      
-      // Calculate distance in Baidu coordinate system
+      const centerLat = area.center.lat;
+      const centerLng = area.center.lng;
       const distance = calculateDistance(userLocationBaidu.lat, userLocationBaidu.lng, centerLat, centerLng);
-      
       if (distance < minDistance) {
         minDistance = distance;
         nearest = { ...area, distance };
       }
     });
-    
     return nearest;
   };
 
   const autoSelectTargetArea = () => {
     if (!userLocation || scenicAreas.length === 0) return;
-    
     console.log('Auto-selecting target area based on user location (BD-09):', userLocation);
-    
-    // Use BD-09 coordinates directly since userLocation is BD-09 by default
     const userLocationBaidu = userLocation;
-    
     // First, check if user is inside any scenic area boundary
-    const currentArea = scenicAreas.find(area => isPointInBounds(userLocationBaidu, area.bounds));
-    
+    const currentArea = scenicAreas.find(area => isPointInBounds(userLocationBaidu, area));
     if (currentArea) {
       console.log('User is inside scenic area:', currentArea.name);
       setCurrentTargetArea(currentArea);
       return;
     }
-    
     // If not inside any area, find the nearest one
     const nearestArea = getNearestArea(userLocationBaidu);
     if (nearestArea) {

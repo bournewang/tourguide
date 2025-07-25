@@ -9,8 +9,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // You need to set these environment variables or replace with your actual values
-const subscriptionKey = process.env.AZURE_SPEECH_KEY || 'YOUR_SPEECH_KEY';
-const serviceRegion = process.env.AZURE_SPEECH_REGION || 'eastus';
+const subscriptionKey = process.env.SPEECH_KEY || 'YOUR_SPEECH_KEY';
+const serviceRegion = process.env.SPEECH_REGION || 'eastus';
 
 if (subscriptionKey === 'YOUR_SPEECH_KEY') {
     console.error('❌ Please set your Azure Speech Services credentials!');

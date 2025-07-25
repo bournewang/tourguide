@@ -6,8 +6,8 @@
 set -e  # Exit on any error
 
 # Configuration
-SPOTS_DIR="public/spots"
-THUMBS_DIR="public/spots-thumb"
+IMAGES_DIR="public/assets/images"
+THUMBS_DIR="public/assets/thumb"
 THUMB_SUFFIX=""  # No suffix needed since they're in separate directory
 THUMB_SIZE="300x200"  # Width x Height for thumbnails
 QUALITY=85           # JPEG quality (1-100)
@@ -51,13 +51,13 @@ check_imagemagick() {
 }
 
 # Check if spots directory exists
-check_spots_directory() {
-    if [ ! -d "$SPOTS_DIR" ]; then
-        print_error "Spots directory '$SPOTS_DIR' does not exist"
+check_images_directory() {
+    if [ ! -d "$IMAGES_DIR" ]; then
+        print_error "Images directory '$IMAGES_DIR' does not exist"
         exit 1
     fi
     
-    print_success "Found spots directory: $SPOTS_DIR"
+    print_success "Found images directory: $IMAGES_DIR"
 }
 
 # Function to create thumbnail
@@ -72,7 +72,7 @@ create_thumbnail() {
     fi
     
     # Create thumbnail with ImageMagick
-    if convert "$input_file" \
+    if magick "$input_file" \
         -resize "${THUMB_SIZE}^" \
         -gravity center \
         -extent "$THUMB_SIZE" \
@@ -94,15 +94,15 @@ create_thumbnail() {
 }
 
 # Function to process images in a directory
-process_directory() {
-    local dir="$1"
-    local spot_name=$(basename "$dir")
-    local thumb_dir="$THUMBS_DIR/$spot_name"
+process_spot_directory() {
+    local spot_dir="$1"
+    # This will be <area-name>/<spot-name>
+    local relative_path=${spot_dir#"$IMAGES_DIR/"}
+    local thumb_dir="$THUMBS_DIR/$relative_path"
     local processed=0
-    local skipped=0
     local failed=0
     
-    print_status "Processing spot: $spot_name"
+    print_status "Processing spot: $relative_path"
     
     # Create thumbnail directory if it doesn't exist
     if [ ! -d "$thumb_dir" ]; then
@@ -113,21 +113,36 @@ process_directory() {
     # Find all supported image files
     for format in "${SUPPORTED_FORMATS[@]}"; do
         # Process both lowercase and uppercase extensions
-        for ext in "$format" "$(echo "$format" | tr '[:lower:]' '[:upper:]')"; do
-            for image_file in "$dir"/*."$ext"; do
+        for ext in "$format" "$(echo "$format" | tr '[:lower:]' '[:upper:]')"; do # e.g., jpg and JPG
+            for image_file in "$spot_dir"/*."$ext"; do
                 # Skip if no files match the pattern
                 [ ! -f "$image_file" ] && continue
                 
+                # if original image is not a jpg, rename it to jpg
+                if [ "$ext" != "jpg" ]; then
+                    local new_filename="${filename%.*}"
+                    local new_path="$spot_dir/$new_filename.jpg"
+                    mv "$image_file" "$new_path"
+                    image_file="$new_path"
+                fi
                 # Generate thumbnail filename (remove suffix, keep original name)
                 local filename=$(basename "$image_file")
                 local name_without_ext="${filename%.*}"
                 local thumb_filename="${name_without_ext}.jpg"  # Always save as JPG
                 local thumb_path="$thumb_dir/$thumb_filename"
+
+                # skip if thumbnail already exists
+                if [ -f "$thumb_path" ]; then
+                    print_warning "Thumbnail already exists: $thumb_path"
+                    continue
+                fi
                 
                 print_status "  Processing: $filename"
                 
                 if create_thumbnail "$image_file" "$thumb_path"; then
                     ((processed++))
+                    # Break after creating first thumbnail
+                    break 3  # Break out of all nested loops
                 else
                     ((failed++))
                 fi
@@ -136,15 +151,15 @@ process_directory() {
     done
     
     if [ $processed -gt 0 ]; then
-        print_success "Processed $processed images in $spot_name"
+        print_success "Processed $processed images in $relative_path"
     fi
     
     if [ $failed -gt 0 ]; then
-        print_error "Failed to process $failed images in $spot_name"
+        print_error "Failed to process $failed images in $relative_path"
     fi
     
     if [ $processed -eq 0 ] && [ $failed -eq 0 ]; then
-        print_warning "No images found in $spot_name"
+        print_warning "No images found in $relative_path"
     fi
     
     return $failed
@@ -155,7 +170,7 @@ update_json_files() {
     print_status "Updating JSON files with thumbnail paths..."
     
     # Find all JSON files in src/data/spots/
-    local json_dir="src/data/spots"
+    local json_dir="public/data/spots"
     local updated_files=0
     
     if [ ! -d "$json_dir" ]; then
@@ -199,29 +214,51 @@ update_json_files() {
 # Main execution
 main() {
     print_status "Starting thumbnail creation process..."
+    print_status "Source Images: $IMAGES_DIR"
+    print_status "Thumbnail Destination: $THUMBS_DIR"
     print_status "Thumbnail size: $THUMB_SIZE"
     print_status "Quality: $QUALITY%"
     echo
     
     # Check prerequisites
     check_imagemagick
-    check_spots_directory
+    check_images_directory
     echo
     
-    # Process all spot directories
-    local total_processed=0
-    local total_failed=0
+    # Determine which areas to process
+    local AREAS_TO_PROCESS=()
+    if [ -n "$1" ]; then
+        local AREA_NAME="$1"
+        if [ -d "$IMAGES_DIR/$AREA_NAME" ]; then
+            AREAS_TO_PROCESS=("$IMAGES_DIR/$AREA_NAME")
+            print_status "Processing only area: $AREA_NAME"
+        else
+            print_error "Area directory '$IMAGES_DIR/$AREA_NAME' does not exist."
+            exit 1
+        fi
+    else
+        AREAS_TO_PROCESS=("$IMAGES_DIR"/*)
+    fi
     
-    for spot_dir in "$SPOTS_DIR"/*; do
-        if [ -d "$spot_dir" ]; then
-            process_directory "$spot_dir"
-            local exit_code=$?
-            if [ $exit_code -eq 0 ]; then
-                ((total_processed++))
-            else
-                ((total_failed++))
-            fi
-            echo
+    # Process all spot directories within area directories
+    local total_spots_processed=0
+    local total_spots_failed=0
+    
+    for area_dir in "${AREAS_TO_PROCESS[@]}"; do
+        if [ -d "$area_dir" ]; then
+            print_status "Processing area: $(basename "$area_dir")"
+            for spot_dir in "$area_dir"/*; do
+                if [ -d "$spot_dir" ]; then
+                    process_spot_directory "$spot_dir"
+                    local exit_code=$?
+                    if [ $exit_code -eq 0 ]; then
+                        ((total_spots_processed++))
+                    else
+                        ((total_spots_failed++))
+                    fi
+                    echo
+                fi
+            done
         fi
     done
     
@@ -231,14 +268,14 @@ main() {
     
     # Summary
     print_status "=== SUMMARY ==="
-    print_success "Processed directories: $total_processed"
-    if [ $total_failed -gt 0 ]; then
-        print_error "Failed directories: $total_failed"
+    print_success "Processed spot directories: $total_spots_processed"
+    if [ $total_spots_failed -gt 0 ]; then
+        print_error "Failed spot directories: $total_spots_failed"
     fi
     
-    print_status "Thumbnails are saved in separate directory structure: $THUMBS_DIR"
-    print_status "You can now update your JSON files to use the thumbnail paths"
-    print_status "Example: \"image_thumb\": \"/spots-thumb/景点名/图片名.jpg\""
+    print_status "Thumbnails are saved in a parallel directory structure: $THUMBS_DIR"
+    print_status "You can now update your JSON data to use the new thumbnail paths."
+    print_status "Example: \"image_thumb\": \"/images-thumb/spot-area/spot-name/image.jpg\""
     
     echo
     print_success "Thumbnail creation process completed!"
@@ -246,10 +283,10 @@ main() {
 
 # Show help
 show_help() {
-    echo "Usage: $0 [OPTIONS]"
+    echo "Usage: $0 [OPTIONS] [AREA_NAME]"
     echo
-    echo "Create thumbnails for all spot images in public/spots/ directories"
-    echo "Thumbnails will be saved to public/spots-thumb/ with same directory structure"
+    echo "Create thumbnails for all spot images in public/images/<area>/<spot>/ directories"
+    echo "Thumbnails will be saved to public/images-thumb/<area>/<spot>/ with the same structure"
     echo
     echo "Options:"
     echo "  -s, --size SIZE     Thumbnail size (default: $THUMB_SIZE)"
@@ -261,13 +298,15 @@ show_help() {
     echo "  $0 --size 400x300          # Custom thumbnail size"
     echo "  $0 --quality 90            # Higher quality"
     echo "  $0 --size 200x150 --quality 75  # Custom size and quality"
+    echo "  $0 中岳庙                     # Process only the '中岳庙' area"
     echo
     echo "Output structure:"
-    echo "  public/spots/景点名/图片.jpg  ->  public/spots-thumb/景点名/图片.jpg"
+    echo "  public/images/<area>/<spot>/image.jpg  ->  public/images-thumb/<area>/<spot>/image.jpg"
     echo
 }
 
 # Parse command line arguments
+AREA_NAME=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         -s|--size)
@@ -282,10 +321,24 @@ while [[ $# -gt 0 ]]; do
             show_help
             exit 0
             ;;
-        *)
+        --)
+            shift
+            break
+            ;;
+        -*)
             print_error "Unknown option: $1"
             show_help
             exit 1
+            ;;
+        *)
+            if [[ -z "$AREA_NAME" ]]; then
+                AREA_NAME="$1"
+                shift
+            else
+                print_error "Unknown option: $1"
+                show_help
+                exit 1
+            fi
             ;;
     esac
 done
@@ -297,4 +350,4 @@ if ! [[ "$QUALITY" =~ ^[0-9]+$ ]] || [ "$QUALITY" -lt 1 ] || [ "$QUALITY" -gt 10
 fi
 
 # Run main function
-main 
+main "$AREA_NAME" 

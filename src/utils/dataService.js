@@ -9,10 +9,10 @@ const forceStatic = import.meta.env.VITE_USE_STATIC_DATA === 'true';
 // API configuration
 const API_BASE = import.meta.env.VITE_WORKER_URL || 'https://worker.qingfan.org';
 
-const DATA_PATH = '/data';
+const DATA_PATH = '/assets/data';
 
 // Default scenic area file
-let CURRENT_SCENIC_AREA_FILE = 'scenic-area.json'; // Default to Dengfeng
+let CURRENT_SCENIC_AREA_FILE = 'scenic-area.json'; // Current format
 
 // Static data paths (will be updated dynamically)
 const getStaticPaths = () => ({
@@ -90,8 +90,20 @@ export const dataService = {
           throw new Error(`Static file error (${response.status}): ${response.statusText}`);
         }
         
-        areaData = await response.json();
-        //console.log('✅ Static scenic areas loaded successfully');
+        const rawData = await response.json();
+        
+        // Handle different data formats
+        if (rawData.scenicAreas && Array.isArray(rawData.scenicAreas)) {
+          // New city structure format: { scenicAreas: [...] }
+          areaData = rawData.scenicAreas;
+          //console.log('✅ Static scenic areas loaded successfully from new city structure');
+        } else if (Array.isArray(rawData)) {
+          // Current format: direct array
+          areaData = rawData;
+          //console.log('✅ Static scenic areas loaded successfully from direct array');
+        } else {
+          throw new Error(`Unknown scenic areas data format: ${typeof rawData}`);
+        }
       } else {
         //console.log('🌐 Fetching scenic areas from API...');
         const response = await fetch(`${API_BASE}/api/scenic-areas`);
@@ -159,7 +171,11 @@ export const dataService = {
         //console.log(`✅ Static spot data loaded successfully from ${spotFilePath}`);
         
         // Handle different data structures
-        if (rawData.results && Array.isArray(rawData.results)) {
+        if (rawData.spots && Array.isArray(rawData.spots)) {
+          // New city structure format: { scenicAreaId: "...", spots: [...] }
+          spotData = rawData.spots;
+          //console.log(`📋 Extracted ${spotData.length} spots from new city structure`);
+        } else if (rawData.results && Array.isArray(rawData.results)) {
           // Kaifeng format: { results: [...] }
           spotData = rawData.results;
           //console.log(`📋 Extracted ${spotData.length} spots from results array`);

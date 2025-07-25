@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTargetArea } from '../hooks/useTargetArea';
 
-const Layout = ({ children, title, showBack = false, showBottomNav = true }) => {
+const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdmin = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDebugMode, currentTargetArea } = useTargetArea();
@@ -103,6 +103,23 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true }) => 
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className="text-xs">管理</span>
+              </button>
+            )}
+
+            {/* Editor Mode Button - Only show in admin mode */}
+            {isAdmin && (
+              <button
+                onClick={() => handleNavigate('/editor')}
+                className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
+                  isActive('/editor') 
+                    ? 'text-blue-600 bg-blue-50' 
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span className="text-xs">编辑模式</span>
               </button>
             )}
           </div>
