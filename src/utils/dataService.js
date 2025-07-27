@@ -11,12 +11,15 @@ const API_BASE = import.meta.env.VITE_WORKER_URL || 'https://worker.qingfan.org'
 
 const DATA_PATH = '/assets/data';
 
+// Resource base URL for static assets
+const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_BASE_URL || '';
+
 // Default scenic area file
 let CURRENT_SCENIC_AREA_FILE = 'scenic-area.json'; // Current format
 
 // Static data paths (will be updated dynamically)
 const getStaticPaths = () => ({
-  scenicAreas: `${DATA_PATH}/${CURRENT_SCENIC_AREA_FILE}`
+  scenicAreas: `${RESOURCE_BASE_URL}${DATA_PATH}/${CURRENT_SCENIC_AREA_FILE}`
 });
 
 // Cache for scenic areas data to avoid repeated fetches
@@ -117,6 +120,12 @@ export const dataService = {
         //console.log('✅ API scenic areas loaded successfully');
       }
       
+      // Ensure each area has a display field (default to 'show' if not present)
+      areaData = areaData.map(area => ({
+        ...area,
+        display: area.display || 'show'
+      }));
+      
       // Cache the result
       cacheService.set(cacheKey, areaData);
       //console.log(`💾 Scenic areas cached successfully (${dataSource})`);
@@ -129,6 +138,34 @@ export const dataService = {
       //console.error(`Failed to get scenic areas (${dataSource}):`, error);
       throw new Error(`Failed to get scenic areas: ${error.message}`);
     }
+  },
+
+  // Get visible scenic areas (filtered by display status)
+  async getVisibleScenicAreas() {
+    const allAreas = await this.getScenicAreas();
+    return allAreas.filter(area => area.display !== 'hide');
+  },
+
+  // Convert resolved URL back to relative path for storage
+  getRelativePath(resolvedUrl) {
+    if (!resolvedUrl) return '';
+    
+    console.log('Converting to relative path:', { resolvedUrl, RESOURCE_BASE_URL });
+    
+    // If it's already a relative path, return as is
+    if (!resolvedUrl.startsWith('http')) {
+      return resolvedUrl;
+    }
+    
+    // Remove the resource base URL prefix
+    if (RESOURCE_BASE_URL && resolvedUrl.startsWith(RESOURCE_BASE_URL)) {
+      const relativePath = resolvedUrl.substring(RESOURCE_BASE_URL.length);
+      // Remove leading slash if present
+      return relativePath.startsWith('/') ? relativePath.substring(1) : relativePath;
+    }
+    
+    // If no resource base URL or doesn't match, return the original
+    return resolvedUrl;
   },
 
   // Get spot data for a specific area
@@ -158,7 +195,7 @@ export const dataService = {
         }
         
         // For Kaifeng data, the spots files are in directory
-        const spotFilePath = `${DATA_PATH}/${area.spotsFile}`;
+        const spotFilePath = `${RESOURCE_BASE_URL}${DATA_PATH}/${area.spotsFile}`;
         //console.log('spotFilePath', spotFilePath);
         
         const response = await fetch(spotFilePath);
@@ -250,7 +287,59 @@ export const dataService = {
       }
     }
     
+    // In static/production mode, use RESOURCE_BASE_URL
+    if (dataSource === 'static') {
+      if (audioFile.startsWith('/')) {
+        return `${RESOURCE_BASE_URL}${audioFile}`;
+      }
+    }
+    
     // In static/production mode, use as-is (served from public/audio/)
     return audioFile;
+  },
+
+  // Resolve image URL based on current mode
+  resolveImageUrl(imagePath) {
+    if (!imagePath) return null;
+    
+    console.log('Resolving image URL:', { imagePath, RESOURCE_BASE_URL, dataSource: getDataSource() });
+    
+    // const dataSource = getDataSource();
+    // if (dataSource === 'static') {
+      // If it's already a full URL, return as is
+      if (imagePath.startsWith('http')) {
+        console.log('Already a full URL, returning as is');
+        return imagePath;
+      }
+      
+      // If it starts with /, prepend RESOURCE_BASE_URL
+      if (imagePath.startsWith('/')) {
+        const resolvedUrl = `${RESOURCE_BASE_URL}${imagePath}`;
+        console.log('Resolved URL (starts with /):', resolvedUrl);
+        return resolvedUrl;
+      }
+      
+      // If it doesn't start with /, assume it's a relative path and prepend RESOURCE_BASE_URL + /
+      if (RESOURCE_BASE_URL) {
+        const resolvedUrl = `${RESOURCE_BASE_URL}/${imagePath}`;
+        console.log('Resolved URL (relative path):', resolvedUrl);
+        return resolvedUrl;
+      }
+    // }
+    
+    console.log('Returning original path (not static mode or no RESOURCE_BASE_URL):', imagePath);
+    return imagePath;
+  },
+
+  // Resolve thumb URL based on current mode
+  resolveThumbUrl(thumbPath) {
+    if (!thumbPath) return null;
+    // const dataSource = getDataSource();
+    // if (dataSource === 'static') {
+      if (thumbPath.startsWith('/')) {
+        return `${RESOURCE_BASE_URL}${thumbPath}`;
+      }
+    // }
+    return thumbPath;
   }
 };

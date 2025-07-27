@@ -76,7 +76,7 @@ export const ttsService = {
   // Validate device access for NFC authentication
   async validateDeviceAccess(uid, deviceFingerprint, maxDevices = 3) {
     try {
-      const response = await fetch(`${API_BASE}/api/nfc/validate`, {
+      const response = await fetch(`${API_BASE}/api/nfc`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,7 +116,7 @@ export const ttsService = {
   },
 
   // Generate narration using QWen AI - Only available in API mode
-  async generateNarration(spotInfo) {
+  async generateNarration(spotInfo, customPrompt = '') {
     if (!dataService.isApiMode()) {
       throw new Error('AI narration generation is only available in development mode');
     }
@@ -132,7 +132,8 @@ export const ttsService = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          spotInfo
+          spotInfo,
+          customPrompt
         })
       });
 
@@ -212,7 +213,7 @@ export const ttsService = {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/spot`, {
+      const response = await fetch(`${API_BASE}/api/spots`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

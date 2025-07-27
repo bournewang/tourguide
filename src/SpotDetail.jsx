@@ -194,7 +194,7 @@ function SpotDetail() {
             <video
               ref={videoRef}
               className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg bg-black"
-              poster={spot.image}
+              poster={dataService.resolveImageUrl(spot.image)}
               onError={() => {
                 setVideoError(true);
               }}
@@ -206,11 +206,11 @@ function SpotDetail() {
           ) : hasImageSequence && mediaType === 'imageSequence' ? (
             <div className="relative">
               <img
-                src={(imageSequence[currentImageIndex]?.img || spot.image)}
+                src={dataService.resolveImageUrl(imageSequence[currentImageIndex]?.img || spot.image)}
                 alt={imageSequence[currentImageIndex]?.notes || spot.name}
                 className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg cursor-pointer transition-opacity duration-500"
                 onError={(e) => {
-                  e.target.src = spot.image || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name);
+                  e.target.src = dataService.resolveImageUrl(spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name);
                 }}
                 onClick={toggleMedia}
               />
@@ -230,7 +230,7 @@ function SpotDetail() {
             </div>
           ) : (
             <img
-              src={spot.image || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name)}
+              src={dataService.resolveImageUrl(spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name)}
               alt={spot.name}
               className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg cursor-pointer"
               onClick={toggleMedia}

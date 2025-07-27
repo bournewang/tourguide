@@ -4,6 +4,7 @@ import { useTargetArea } from './hooks/useTargetArea';
 import { calculateDistance, formatDistance } from './utils/coordinateUtils';
 import { ttsService } from './utils/ttsService';
 import { getValidationStatus, formatValidationStatus } from './utils/validationStatus';
+import { dataService } from './utils/dataService';
 
 function SpotList() {
   const navigate = useNavigate();
@@ -356,7 +357,7 @@ function SpotList() {
                   onClick={() => handleSpotClick(spot)}
                 >
                   <img
-                    src={spot.thumbnail || '/spot-default.jpg'}
+                    src={dataService.resolveThumbUrl(spot.thumbnail) || '/spot-default.jpg'}
                     alt={spot.name}
                     className="w-16 h-16 object-cover rounded-lg"
                     onError={(e) => {
@@ -369,6 +370,7 @@ function SpotList() {
                       {spot.distance !== null && (
                         <p className="text-sm text-blue-600 font-semibold">
                           📍 {formatDistance(spot.distance)}
+                          {/* {dataService.resolveThumbUrl(spot.thumbnail)} */}
                         </p>
                       )}
                     </div>

@@ -3,6 +3,7 @@ import { useHowlerAudio } from './hooks/useHowlerAudio';
 import { useTTSService } from './hooks/useTTSService';
 import ImageSequenceTimeline from './components/ImageSequenceTimeline';
 import { ttsService } from './utils/ttsService';
+import { dataService } from './utils/dataService';
 
 function NarrationEditor() {
   // State management
@@ -24,11 +25,12 @@ function NarrationEditor() {
   const [isDirty, setIsDirty] = useState(false);
   
   // TTS service
-  const { generateAudio, isGenerating: isGeneratingAudio } = useTTSService();
+  const { isGenerating: isGeneratingAudio } = useTTSService();
   
   // QWen AI state
   const [isGeneratingNarration, setIsGeneratingNarration] = useState(false);
   const [narrationSuccessMessage, setNarrationSuccessMessage] = useState('');
+  const [customPrompt, setCustomPrompt] = useState('');
   
   // Audio generation state
   const [audioSuccessMessage, setAudioSuccessMessage] = useState('');
@@ -63,10 +65,12 @@ function NarrationEditor() {
     loadScenicAreas();
   }, []);
 
+
+
   // Load spots when area changes
   useEffect(() => {
     if (selectedArea) {
-      loadSpots(selectedArea.spotsFile);
+      loadSpots();
     }
   }, [selectedArea]);
 
@@ -82,11 +86,20 @@ function NarrationEditor() {
     if (selectedSpot && !isUpdatingAudio) {
       console.log('⚠️ RESETTING LOCAL STATE - Spot changed without isUpdatingAudio flag');
       setNarrationText(selectedSpot.description || '');
-      // Sort existing image sequence by start time when loading
+      // Sort existing image sequence by start time when loading and resolve URLs
       const existingImageSequence = selectedSpot.imageSequence || [];
-      const sortedImageSequence = [...existingImageSequence].sort((a, b) => a.start - b.start);
+      const sortedImageSequence = [...existingImageSequence]
+        .sort((a, b) => a.start - b.start)
+        .map(image => {
+          const resolvedUrl = image.img ? dataService.resolveImageUrl(image.img) : image.img;
+          console.log('Spot change image URL:', { original: image.img, resolved: resolvedUrl });
+          return {
+            ...image,
+            img: resolvedUrl
+          };
+        });
       setLocalImageSequence(sortedImageSequence);
-      setLocalCoverImage(selectedSpot.image_thumb || '');
+      setLocalCoverImage(dataService.resolveImageUrl(selectedSpot.image_thumb) || '');
       setLocalAudioInfo(null); // Clear local audio info when spot changes
       setHasLocalChanges(false); // Clear local changes when spot data is loaded
       setIsDirty(false);
@@ -134,7 +147,7 @@ function NarrationEditor() {
   };
 
   // Load spots data for selected area
-  const loadSpots = async (spotsFile) => {
+  const loadSpots = async () => {
     if (!selectedArea) return;
     
     try {
@@ -144,8 +157,17 @@ function NarrationEditor() {
         const firstSpot = result[0];
         setSelectedSpot(firstSpot);
         setNarrationText(firstSpot.description || '');
-        setLocalImageSequence(firstSpot.imageSequence || []);
-        setLocalCoverImage(firstSpot.image_thumb || '');
+        // Resolve image URLs for existing image sequence
+        const resolvedImageSequence = (firstSpot.imageSequence || []).map(image => {
+          const resolvedUrl = image.img ? dataService.resolveImageUrl(image.img) : image.img;
+          console.log('Resolving image URL:', { original: image.img, resolved: resolvedUrl });
+          return {
+            ...image,
+            img: resolvedUrl
+          };
+        });
+        setLocalImageSequence(resolvedImageSequence);
+        setLocalCoverImage(dataService.resolveImageUrl(firstSpot.image_thumb) || '');
         setLocalAudioInfo(null); // Clear any local audio info when loading new spot
         
         // Log audio file status
@@ -165,6 +187,7 @@ function NarrationEditor() {
   const handleNarrationChange = (value) => {
     setNarrationText(value);
     setIsDirty(true);
+    setHasLocalChanges(true); // Ensure any narration change enables save
   };
 
   // Generate narration using QWen AI through backend
@@ -178,7 +201,12 @@ function NarrationEditor() {
     setNarrationSuccessMessage(''); // Clear any previous success message
     
     try {
-      const result = await ttsService.generateNarration(selectedSpot);
+      // Create spotInfo with areaName included
+      const spotInfoWithArea = {
+        ...selectedSpot,
+        areaName: selectedArea?.name || '未知景区'
+      };
+      const result = await ttsService.generateNarration(spotInfoWithArea, customPrompt);
       
       if (result.success && result.narration) {
         setNarrationText(result.narration);
@@ -315,12 +343,17 @@ function NarrationEditor() {
         : 0;
 
       // Create new image sequence items
-      const newImages = imageFiles.map((filename, index) => ({
-        img: `${batchFolder}/${filename}`,
-        start: Math.round((startTime + index * 5) * 10) / 10,
-        duration: 5.0,
-        notes: filename.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') // Use filename without extension as notes
-      }));
+      const newImages = imageFiles.map((filename, index) => {
+        const imagePath = `${batchFolder}/${filename}`;
+        const resolvedUrl = dataService.resolveImageUrl(imagePath);
+        console.log('Batch import image path:', { original: imagePath, resolved: resolvedUrl });
+        return {
+          img: resolvedUrl,
+          start: Math.round((startTime + index * 5) * 10) / 10,
+          duration: 5.0,
+          notes: filename.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') // Use filename without extension as notes
+        };
+      });
 
       // Add to existing sequence
       const updatedSequence = [...localImageSequence, ...newImages];
@@ -381,7 +414,7 @@ function NarrationEditor() {
       console.log('🔄 Updating local cover image:', selectedImage.img);
       
       // Update local cover image only - no more selectedSpot updates
-      setLocalCoverImage(selectedImage.img);
+      setLocalCoverImage(dataService.resolveImageUrl(selectedImage.img));
       setHasLocalChanges(true);
       setIsDirty(true);
       
@@ -394,8 +427,23 @@ function NarrationEditor() {
 
   // Save current spot data to Cloudflare
   const saveCurrentSpot = async () => {
-    if (!selectedSpot || !hasLocalChanges) return;
+    console.log('🔍 Save button clicked:', {
+      selectedSpot: selectedSpot?.name,
+      hasLocalChanges,
+      isDirty,
+      narrationTextLength: narrationText.length
+    });
+    
+    if (!selectedSpot || (!hasLocalChanges && !isDirty)) {
+      console.log('❌ Save blocked:', {
+        noSelectedSpot: !selectedSpot,
+        noLocalChanges: !hasLocalChanges,
+        notDirty: !isDirty
+      });
+      return;
+    }
 
+    console.log('✅ Proceeding with save...');
     console.log('Saving spot with imageSequence:', localImageSequence);
     console.log('Saving spot with audio info:', localAudioInfo);
 
@@ -404,10 +452,16 @@ function NarrationEditor() {
     console.log('Sorted imageSequence by start time:', sortedImageSequence);
 
     // Prepare update payload with all local changes
+    // Convert resolved URLs back to relative paths for storage
+    const imageSequenceForStorage = sortedImageSequence.map(image => ({
+      ...image,
+      img: image.img ? dataService.getRelativePath(image.img) : image.img
+    }));
+    
     const updatePayload = {
       description: narrationText,
-      imageSequence: sortedImageSequence,
-      image_thumb: localCoverImage
+      imageSequence: imageSequenceForStorage,
+      image_thumb: localCoverImage ? dataService.getRelativePath(localCoverImage) : ''
     };
 
     // Include audio info if available
@@ -438,7 +492,7 @@ function NarrationEditor() {
       setSpots(updatedSpots);
       setSelectedSpot(updatedSpot);
       setLocalImageSequence(sortedImageSequence); // Update local state with sorted sequence
-      setLocalCoverImage(updatedSpot.image_thumb); // Update local cover image
+              setLocalCoverImage(dataService.resolveImageUrl(updatedSpot.image_thumb)); // Update local cover image
       setLocalAudioInfo(null); // Clear local audio info after successful save
       setHasLocalChanges(false); // Clear local changes after successful save
       setIsDirty(false);
@@ -488,6 +542,32 @@ function NarrationEditor() {
     }
   };
 
+  const handleToggleAreaDisplay = async (area, index) => {
+    const newDisplay = area.display === 'hide' ? 'show' : 'hide';
+    const updatedAreas = [...scenicAreas];
+    updatedAreas[index] = { ...area, display: newDisplay };
+    setScenicAreas(updatedAreas);
+
+    try {
+      await ttsService.updateScenicAreas(updatedAreas);
+      console.log(`Area "${area.name}" display status updated to: ${newDisplay}`);
+      
+      // If the current selected area is being hidden, select the first visible area
+      if (newDisplay === 'hide' && selectedArea?.name === area.name) {
+        const firstVisibleArea = updatedAreas.find(a => a.display !== 'hide');
+        if (firstVisibleArea) {
+          setSelectedArea(firstVisibleArea);
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to update area display status for ${area.name}:`, error);
+      alert(`更新景区显示状态失败: ${error.message}`);
+      // Revert the display status in the UI if update fails
+      updatedAreas[index] = { ...area, display: area.display };
+      setScenicAreas(updatedAreas);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -507,7 +587,7 @@ function NarrationEditor() {
             )}
             <button
               onClick={saveCurrentSpot}
-              disabled={!hasLocalChanges}
+              disabled={!hasLocalChanges && !isDirty}
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               保存修改
@@ -613,6 +693,21 @@ function NarrationEditor() {
                         </>
                       )}
                     </button>
+                  </div>
+                </div>
+                {/* Custom Prompt Input */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    自定义提示词 (可选)
+                  </label>
+                  <textarea
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    placeholder="请输入自定义提示词来指导AI生成导游词，例如：'请以轻松幽默的语气介绍这个景点' 或 '请重点介绍历史背景和文化价值'..."
+                    className="w-full h-20 p-3 border border-gray-300 rounded-md resize-y focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                  <div className="mt-1 text-xs text-gray-500">
+                    提示词将指导AI生成更符合您需求的导游词内容
                   </div>
                 </div>
                 <textarea
@@ -837,10 +932,33 @@ function NarrationEditor() {
             >
               {scenicAreas.map(area => (
                 <option key={area.name} value={area.name}>
-                  {area.name}
+                  {area.name}{area.display === 'hide' ? ' (隐藏)' : ''}
                 </option>
               ))}
             </select>
+            
+            {/* Area Display Toggle */}
+            {selectedArea && (
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-sm text-gray-600">显示状态:</span>
+                <button
+                  onClick={() => {
+                    const areaIndex = scenicAreas.findIndex(a => a.name === selectedArea.name);
+                    if (areaIndex !== -1) {
+                      handleToggleAreaDisplay(scenicAreas[areaIndex], areaIndex);
+                    }
+                  }}
+                  className={`px-3 py-1 text-xs rounded transition-colors ${
+                    selectedArea.display === 'hide'
+                      ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                      : 'bg-green-100 text-green-600 hover:bg-green-200'
+                  }`}
+                  title={selectedArea.display === 'hide' ? '点击显示景区' : '点击隐藏景区'}
+                >
+                  {selectedArea.display === 'hide' ? '👁️ 显示' : '🚫 隐藏'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Spots List */}

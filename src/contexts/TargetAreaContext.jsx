@@ -94,9 +94,9 @@ export const TargetAreaProvider = ({ children }) => {
   useEffect(() => {
     const loadScenicAreas = async () => {
       try {
-        console.log('TargetAreaContext: Loading scenic areas using dataService...');
-        const data = await dataService.getScenicAreas();
-        console.log('TargetAreaContext: Loaded scenic areas:', data);
+        console.log('TargetAreaContext: Loading visible scenic areas using dataService...');
+        const data = await dataService.getVisibleScenicAreas();
+        console.log('TargetAreaContext: Loaded visible scenic areas:', data);
         setScenicAreas(data);
       } catch (error) {
         console.error('TargetAreaContext: Failed to load scenic areas:', error);
@@ -195,7 +195,7 @@ export const TargetAreaProvider = ({ children }) => {
           console.log(`✅ Moved ${spotsDistance.toFixed(1)}m, triggering spots recalculation`);
           lastSpotsCalculationRef.current = newLocation;
           // Only update userLocation when movement exceeds threshold
-          updateUserLocationCoordinates(newLocation, false);
+          updateUserLocationCoordinates(newLocation, isDebugMode);
         } else {
           console.log(`❌ Movement ${spotsDistance.toFixed(1)}m is below 3m threshold, NOT triggering spots recalculation`);
           // Don't update userLocation for small movements
@@ -204,7 +204,7 @@ export const TargetAreaProvider = ({ children }) => {
           console.log('No last spots calculation location, setting initial reference');
           lastSpotsCalculationRef.current = newLocation;
           // Set initial userLocation
-          updateUserLocationCoordinates(newLocation, false);
+          updateUserLocationCoordinates(newLocation, isDebugMode);
         }
         
         // Check if we need to recalculate area (100m threshold)
@@ -288,6 +288,7 @@ export const TargetAreaProvider = ({ children }) => {
     const centerLng = area.center.lng;
     const radius = area.radius;
     const distance = calculateDistance(pointBaidu.lat, pointBaidu.lng, centerLat, centerLng);
+    console.log('isPointInBounds:', area.name, pointBaidu.lat, pointBaidu.lng, centerLat, centerLng, radius, distance);
     return distance <= radius;
   };
 

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { dataService } from '../utils/dataService';
 
 function ImageSequenceTimeline({ 
   imageSequence = [], 
@@ -192,12 +193,16 @@ function ImageSequenceTimeline({
                 <div className="relative bg-black flex items-center justify-center" style={{ height: '240px' }}>
                   {currentImage.img ? (
                     <img
-                      src={currentImage.img}
+                      src={dataService.resolveImageUrl(currentImage.img)}
                       alt={currentImage.notes || '图片'}
                       className="max-w-full max-h-full object-contain"
                       onError={(e) => {
+                        console.error('Image failed to load:', currentImage.img, 'Resolved URL:', dataService.resolveImageUrl(currentImage.img));
                         e.target.style.display = 'none';
                         e.target.nextSibling.style.display = 'flex';
+                      }}
+                      onLoad={() => {
+                        console.log('Image loaded successfully:', currentImage.img, 'Resolved URL:', dataService.resolveImageUrl(currentImage.img));
                       }}
                     />
                   ) : null}
