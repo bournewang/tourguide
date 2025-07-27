@@ -11,6 +11,7 @@ export const TargetAreaProvider = ({ children }) => {
   const [locationError, setLocationError] = useState(null);
   const [isLocationWatching, setIsLocationWatching] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
+  const [isAutoSelectionEnabled, setIsAutoSelectionEnabled] = useState(true);
   const watchIdRef = useRef(null);
   const lastSpotsCalculationRef = useRef(null);
   const lastAreaCalculationRef = useRef(null);

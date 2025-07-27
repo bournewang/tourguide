@@ -6,6 +6,7 @@ import SpotDetail from './SpotDetail'
 import BoundaryView from './BoundaryView'
 import MapView from './MapView'
 import NarrationEditor from './NarrationEditor'
+import ScenicAreaSelector from './pages/ScenicAreaSelector'
 import AccessGate from './components/AccessGate'
 import Layout from './components/Layout'
 import { TargetAreaProvider } from './contexts/TargetAreaContext'
@@ -26,6 +27,12 @@ function AppLayout({ isAdmin }) {
         <Route path="/spot/:spotId" element={
           <Layout title="景点详情" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
             <SpotDetail />
+          </Layout>
+        } />
+        
+        <Route path="/select-area" element={
+          <Layout title="选择景区" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
+            <ScenicAreaSelector />
           </Layout>
         } />
         

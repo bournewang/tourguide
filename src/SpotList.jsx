@@ -5,6 +5,7 @@ import { calculateDistance, formatDistance } from './utils/coordinateUtils';
 import { ttsService } from './utils/ttsService';
 import { getValidationStatus, formatValidationStatus } from './utils/validationStatus';
 import { dataService } from './utils/dataService';
+import ScenicAreaSelector from './components/ScenicAreaSelector';
 
 function SpotList() {
   const navigate = useNavigate();
@@ -168,7 +169,7 @@ function SpotList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-4">
+      <div className="min-h-full bg-gray-50 py-4">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -187,32 +188,12 @@ function SpotList() {
   // Show error if scenic areas loaded but no target area set
   if (!currentTargetArea && scenicAreas.length > 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-4">
+      <div className="min-h-full bg-gray-50 py-4">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center py-8">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">无法确定当前景区</h2>
-            <p className="text-gray-600 mb-4">系统已加载 {scenicAreas.length} 个景区，但未能自动选择当前景区</p>
-            {scenicAreas.length > 1 ? (
-              <div className="space-y-2">
-                {scenicAreas.map((area, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      console.log('Manually selecting area:', area.name);
-                      setTargetArea(area);
-                    }}
-                    className="block w-full max-w-sm mx-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                  >
-                    选择 {area.name}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-600">
-                正在选择默认景区...
-              </p>
-            )}
+            <h2 className="text-xl font-bold text-gray-800 mb-2">无法确定当前景区，请手动选择景区</h2>
+            <p className="text-gray-600 mb-4">系统已加载 {scenicAreas.length} 个景区，但未能自动选择当前景区，请手动选择景区</p>
           </div>
         </div>
       </div>
@@ -220,7 +201,7 @@ function SpotList() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-full bg-gray-50">
       <div className="flex-1 overflow-y-auto px-2 pb-4"> {/* Reduced bottom padding since nav is handled by Layout */}
         <div className="max-w-3xl mx-auto px-4">
           {/* Scenic Area Description */}
@@ -251,27 +232,13 @@ function SpotList() {
               )}
             </div>
           )} */}
-          
 
-          
           {/* Location status */}
           {locationError ? (
             <div className="bg-red-50 rounded-xl p-3 mb-4 text-center shadow-sm">
               <p className="text-sm text-red-600 mb-2">
-                📍 无法获取位置，{locationError}
+                📍 无法获取位置，{locationError}，请手动选择景区
               </p>
-              {scenicAreas.length > 1 ? (
-                <button
-                  onClick={() => setShowAreaModal(true)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                >
-                  选择景区
-                </button>
-              ) : (
-                <p className="text-xs text-gray-500">
-                  系统将使用默认景区
-                </p>
-              )}
             </div>
           ) : userLocation ? (
             <></>
@@ -281,69 +248,11 @@ function SpotList() {
             //     ✅ 已获取您的位置，按距离远近排序 
             //   </p>
             // </div>
-          ) : showAreaSelector ? (
-            <div className="bg-yellow-50 rounded-xl p-3 mb-4 text-center shadow-sm">
-              <p className="text-sm text-yellow-600 mb-2">
-                ⏰ 位置获取时间较长
-              </p>
-              {scenicAreas.length > 1 && (
-                <button
-                  onClick={() => setShowAreaModal(true)}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                >
-                  📍 选择景区
-                </button>
-              )}
-            </div>
           ) : (
             <div className="bg-yellow-50 rounded-xl p-3 mb-4 text-center shadow-sm">
               <p className="text-sm text-yellow-600">
                 ⏳ 正在获取您的位置，请稍候...
               </p>
-            </div>
-          )}
-
-          {/* Area Selection Modal */}
-          {showAreaModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAreaModal(false)}>
-              <div className="bg-white rounded-xl p-6 m-4 max-w-md w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
-                <div className="text-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">选择景区</h3>
-                  <p className="text-sm text-gray-600">请选择您想要游览的景区</p>
-                </div>
-                
-                <div className="grid grid-cols-1 gap-3 mb-4">
-                  {scenicAreas.map((area, index) => (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        console.log('Selecting area from modal:', area.name);
-                        setTargetArea(area);
-                        setShowAreaModal(false);
-                      }}
-                      className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 text-left ${
-                        currentTargetArea?.name === area.name
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
-                      }`}
-                    >
-                      <div className="font-medium">{area.name}</div>
-                      {area.description && (
-                        <div className="text-xs mt-1 opacity-75 line-clamp-2">
-                          {area.description.slice(0, 50)}...
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-                
-                <button
-                  onClick={() => setShowAreaModal(false)}
-                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                >
-                  取消
-                </button>
-              </div>
             </div>
           )}
           

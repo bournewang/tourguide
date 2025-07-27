@@ -1,357 +1,377 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
-
 import { ttsService } from './utils/ttsService';
 
 const MapView = () => {
+  const navigate = useNavigate();
   const { currentTargetArea, userLocation } = useTargetArea();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const [map, setMap] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [spots, setSpots] = useState([]);
-  const [allDataLoaded, setAllDataLoaded] = useState(false);
+  const [userHeading, setUserHeading] = useState(0);
+  const [orientationAvailable, setOrientationAvailable] = useState(false);
+  const hasAutoCentered = useRef(false);
   const spotsRef = useRef([]);
-  const [userHeading, setUserHeading] = useState(0); // degrees
-  const [orientationAvailable, setOrientationAvailable] = useState(false); // track if orientation is available
-  const hasAutoCentered = useRef(false); // NEW: track if we've auto-centered
 
   const BAIDU_API_KEY = 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv';
 
+  // Load spots for current target area only
   const loadSpots = async () => {
     if (!currentTargetArea) {
-      setAllDataLoaded(true);
+      console.log('No target area selected, redirecting to area selector');
+      navigate('/select-area');
       return;
     }
 
     try {
       console.log('🗺️ MapView: Loading spots for current target area:', currentTargetArea.name);
+      setLoading(true);
       
       const areaSpots = await ttsService.getSpotData(currentTargetArea.name);
       
-      // Filter spots by display field for map display
+      // Filter spots by display field
       const visibleSpots = areaSpots.filter(spot => spot.display !== "hide");
       
       console.log(`📍 Loaded ${visibleSpots.length}/${areaSpots.length} visible spots for ${currentTargetArea.name}`);
       setSpots(visibleSpots);
-      setAllDataLoaded(true);
+      spotsRef.current = visibleSpots;
       setLoading(false);
       
     } catch (error) {
       console.error('Failed to load spots:', error);
       setError(`Failed to load spots: ${error.message}`);
-      setAllDataLoaded(true);
       setLoading(false);
     }
   };
 
-
-
-  const handleGoToArea = () => {
-    if (!map || !currentTargetArea) return;
-
-    // Use scenic area center if available, otherwise calculate from bounds
-    let centerLng, centerLat;
-    if (currentTargetArea.center && currentTargetArea.center.lng && currentTargetArea.center.lat) {
-      centerLng = currentTargetArea.center.lng;
-      centerLat = currentTargetArea.center.lat;
-      console.log('MapView: Using predefined center:', { lat: centerLat, lng: centerLng });
+  const handleGoToUserLocation = () => {
+    console.log('📍 handleGoToUserLocation called');
+    console.log('📍 map available:', !!map);
+    console.log('📍 userLocation available:', !!userLocation);
+    console.log('📍 userLocation data:', userLocation);
+    
+    if (!map) {
+      console.log('❌ Map not available');
+      return;
     }
     
-    const zoomLevel = currentTargetArea.level || 15;
-    const point = new window.BMap.Point(centerLng, centerLat);
-    map.centerAndZoom(point, zoomLevel);
-    console.log('MapView: Resetting to area center at:', { lat: centerLat, lng: centerLng });
+    if (!userLocation) {
+      console.log('❌ User location not available');
+      return;
+    }
+
+    console.log('✅ MapView: Going to user location:', userLocation);
+    try {
+      const point = new window.BMap.Point(userLocation.lng, userLocation.lat);
+      map.centerAndZoom(point, 16);
+      console.log('✅ Map centered on user location');
+    } catch (error) {
+      console.error('❌ Error centering map on user location:', error);
+    }
   };
 
-  const handleGoToUserLocation = () => {
-    if (!map || !userLocation) return;
-
-    const userBD = userLocation;
-    if (!userBD) return;
-
-    // Center the map on the user and set zoom to 17
-    const userPoint = new window.BMap.Point(userBD.lng, userBD.lat);
-    map.centerAndZoom(userPoint, 17);
-    console.log('MapView: Centered on user location at level 17');
+  const handleSpotClick = (spot) => {
+    console.log('Spot clicked:', spot.name);
+    navigate(`/spot/${encodeURIComponent(spot.name)}`, {
+      state: { spot, areaName: currentTargetArea.name }
+    });
   };
 
-  // Initialize Baidu Map with current target area
+  // eslint-disable-next-line no-unused-vars
+  const handleRefreshMap = () => {
+    if (map) {
+      console.log('🔄 Refreshing map');
+      loadSpots();
+    }
+  };
+
+  const handleSelectArea = () => {
+    navigate('/select-area');
+  };
+
+  // Load Baidu Map API and initialize map
   useEffect(() => {
-    if (mapLoaded && !map && currentTargetArea && allDataLoaded) {
-      console.log('Initializing map for current target area:', currentTargetArea.name);
-      
-      // Initialize map
-      const baiduMap = new window.BMap.Map('baidu-map-container');
-      
-      // Use scenic area center if available, otherwise calculate from bounds
-      let centerLng, centerLat;
-      if (currentTargetArea.center && currentTargetArea.center.lng && currentTargetArea.center.lat) {
-        centerLng = currentTargetArea.center.lng;
-        centerLat = currentTargetArea.center.lat;
-        console.log('MapView: Initializing with predefined center:', { lat: centerLat, lng: centerLng });
+    const loadMapAPI = () => {
+      if (!window.BMap) {
+        const script = document.createElement('script');
+        // Always use mobile optimizations for Baidu Maps
+        script.src = `https://api.map.baidu.com/api?v=3.0&ak=${BAIDU_API_KEY}&callback=initBaiduMapView&s=1`;
+        script.async = true;
+        
+        window.initBaiduMapView = () => {
+          console.log('MapView: Baidu Map API loaded');
+          initializeMap();
+        };
+        
+        document.head.appendChild(script);
+        
+        return () => {
+          if (document.head.contains(script)) {
+            document.head.removeChild(script);
+          }
+        };
+      } else {
+        initializeMap();
       }
+    };
+
+    const initializeMap = () => {
+      if (!window.BMap) {
+        console.error('Baidu Map API not loaded');
+        setError('Baidu Map API not loaded');
+        return;
+      }
+
+      if (!currentTargetArea) {
+        return;
+      }
+
+      console.log('🗺️ Initializing Baidu Map for area:', currentTargetArea.name);
+
+      // Use current target area center and zoom, or defaults
+      const centerLng = currentTargetArea.center?.lng || 113.05;
+      const centerLat = currentTargetArea.center?.lat || 34.49;
       const zoomLevel = currentTargetArea.level || 15;
+
+      console.log('MapView: Initializing with center:', { lng: centerLng, lat: centerLat }, 'zoom level:', zoomLevel);
+
+      const baiduMap = new window.BMap.Map('baidu-map-container');
+      const centerPoint = new window.BMap.Point(centerLng, centerLat);
       
-      console.log('MapView: Initializing with center:', { lat: centerLat, lng: centerLng }, 'zoom level:', zoomLevel);
+      baiduMap.centerAndZoom(centerPoint, zoomLevel);
       
-      const point = new window.BMap.Point(centerLng, centerLat);
-      baiduMap.centerAndZoom(point, zoomLevel);
-      
-      // Enable map controls
-      baiduMap.addControl(new window.BMap.NavigationControl());
-      baiduMap.addControl(new window.BMap.ScaleControl());
-      baiduMap.enableScrollWheelZoom(true);
+      // Always use mobile-optimized controls for Baidu Maps
+      baiduMap.enableScrollWheelZoom();
       baiduMap.enableDragging();
+      baiduMap.enablePinchToZoom();
       
-      // Create canvas layer for drawing current area boundary and spots
+      // Set mobile-appropriate zoom limits
+      baiduMap.setMaxZoom(18);
+      baiduMap.setMinZoom(10);
+      
+      // Mobile-optimized controls
+      baiduMap.addControl(new window.BMap.NavigationControl({
+        type: window.BMAP_NAVIGATION_CONTROL_SMALL
+      }));
+      baiduMap.addControl(new window.BMap.ScaleControl());
+      
+      console.log('Mobile map controls enabled');
+
+      setMap(baiduMap);
+
+      // Create canvas layer for drawing spots
       const canvasLayer = new window.BMap.CanvasLayer({
         update: function() {
-          const ctx = this.canvas.getContext("2d");
+          const canvas = this.canvas;
+          const ctx = canvas.getContext('2d');
           
-          if (!ctx) {
+          if (!ctx || !spotsRef.current || spotsRef.current.length === 0) {
             return;
           }
-          
-          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-          
-          // Draw current target area boundary (circle) and center cross
-          if (currentTargetArea) {
-            const centerPoint = new window.BMap.Point(
-              currentTargetArea.center.lng,
-              currentTargetArea.center.lat
-            );
-            const centerPixel = baiduMap.pointToPixel(centerPoint);
-            const radiusInMeters = currentTargetArea.radius;
-            // Convert radius from meters to pixels
-            const radiusPoint = new window.BMap.Point(
-              centerPoint.lng + (radiusInMeters / 111320 / Math.cos(centerPoint.lat * Math.PI / 180)),
-              centerPoint.lat + (radiusInMeters / 111320)
-            );
-            const radiusPixel = baiduMap.pointToPixel(radiusPoint);
-            const radiusInPixels = Math.sqrt(
-              Math.pow(centerPixel.x - radiusPixel.x, 2) +
-              Math.pow(centerPixel.y - radiusPixel.y, 2)
-            );
-            // Draw circle boundary
-            ctx.beginPath();
-            ctx.arc(centerPixel.x, centerPixel.y, radiusInPixels, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
-            ctx.fill();
-            ctx.strokeStyle = '#3b82f6';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            // Draw center marker as a cross
-            const crossColor = '#2563eb';
-            const crossSize = 6;
-            ctx.save();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
-            ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
-            ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
-            ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
-            ctx.stroke();
-            ctx.restore();
-            ctx.save();
-            ctx.strokeStyle = crossColor;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
-            ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
-            ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
-            ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
-            ctx.stroke();
-            ctx.restore();
-            // Add area name label
-            ctx.fillStyle = '#3b82f6';
-            ctx.font = '16px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(currentTargetArea.name, centerPixel.x, centerPixel.y);
-          }
 
-          // Draw spots for current area
-          if (spotsRef.current && spotsRef.current.length > 0) {
-            let totalSpotsDrawn = 0;
+          try {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            spotsRef.current.forEach((spot) => {
-              // Use spot.location for coordinates
-              if (spot.location && spot.location.lat && spot.location.lng) {
-                const spotPoint = new window.BMap.Point(spot.location.lng, spot.location.lat);
-                const spotPixel = baiduMap.pointToPixel(spotPoint);
+            console.log('🔍 Canvas update - drawing spots:', spotsRef.current.length);
+
+            // Draw user location marker
+            if (userLocation && userLocation.lat && userLocation.lng) {
+              try {
+                const userPoint = new window.BMap.Point(userLocation.lng, userLocation.lat);
+                const userPixel = baiduMap.pointToPixel(userPoint);
                 
-                // Check if pixel coordinates are valid
-                if (spotPixel && spotPixel.x !== undefined && spotPixel.y !== undefined) {
-                  // Draw spot marker
+                if (userPixel && userPixel.x !== undefined && userPixel.y !== undefined) {
+                  // Draw user location marker (blue circle)
                   ctx.beginPath();
-                  ctx.arc(spotPixel.x, spotPixel.y, 5, 0, 2 * Math.PI);
-                  ctx.fillStyle = '#f97316';
+                  ctx.arc(userPixel.x, userPixel.y, 8, 0, 2 * Math.PI);
+                  ctx.fillStyle = '#3b82f6';
                   ctx.fill();
                   ctx.strokeStyle = '#ffffff';
+                  ctx.lineWidth = 3;
+                  ctx.stroke();
+                  
+                  // Add pulsing ring effect
+                  ctx.beginPath();
+                  ctx.arc(userPixel.x, userPixel.y, 12, 0, 2 * Math.PI);
+                  ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
                   ctx.lineWidth = 2;
                   ctx.stroke();
-                  totalSpotsDrawn++; 
                   
-                  // Draw spot name
-                //   ctx.fillStyle = '#333';
-                //   ctx.font = '12px Arial';
-                //   ctx.textAlign = 'center';
-                //   ctx.textBaseline = 'top';
-                //   ctx.fillText(spot.name, spotPixel.x, spotPixel.y + 8);
+                  // Draw user location label
+                  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                  ctx.font = '12px Arial';
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'bottom';
+                  
+                  const text = '我的位置';
+                  const textMetrics = ctx.measureText(text);
+                  const textWidth = textMetrics.width;
+                  const textHeight = 16;
+                  const padding = 4;
+                  
+                  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                  ctx.fillRect(
+                    userPixel.x - textWidth/2 - padding,
+                    userPixel.y - 25 - textHeight - padding,
+                    textWidth + padding * 2,
+                    textHeight + padding * 2
+                  );
+                  
+                  ctx.fillStyle = '#ffffff';
+                  ctx.fillText(text, userPixel.x, userPixel.y - 25);
+                  
+                  console.log('📍 Drew user location at:', userPixel.x, userPixel.y);
                 }
+              } catch (error) {
+                console.error('Error drawing user location:', error);
+              }
+            }
+
+            // Draw spots
+            spotsRef.current.forEach((spot, index) => {
+              try {
+                if (spot && spot.location && spot.location.lat && spot.location.lng) {
+                  const spotPoint = new window.BMap.Point(spot.location.lng, spot.location.lat);
+                  const spotPixel = baiduMap.pointToPixel(spotPoint);
+                  
+                  if (spotPixel && spotPixel.x !== undefined && spotPixel.y !== undefined) {
+                    // Draw spot marker
+                    ctx.beginPath();
+                    ctx.arc(spotPixel.x, spotPixel.y, 5, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#f97316';
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // Add outer ring for clickability
+                    ctx.beginPath();
+                    ctx.arc(spotPixel.x, spotPixel.y, 8, 0, 2 * Math.PI);
+                    ctx.strokeStyle = 'rgba(249, 115, 22, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    
+                    // Draw spot name
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    
+                    const text = spot.name;
+                    const textMetrics = ctx.measureText(text);
+                    const textWidth = textMetrics.width;
+                    const textHeight = 16;
+                    const padding = 4;
+                    
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(
+                      spotPixel.x - textWidth/2 - padding,
+                      spotPixel.y - 15 - textHeight - padding,
+                      textWidth + padding * 2,
+                      textHeight + padding * 2
+                    );
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(text, spotPixel.x, spotPixel.y - 15);
+                    
+                    // Debug first few spots
+                    if (index < 3) {
+                      console.log(`✅ Drew spot ${index}: ${spot.name} at (${spotPixel.x}, ${spotPixel.y})`);
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error('Error drawing spot:', spot?.name, error);
               }
             });
             
-            console.log(`Canvas drawing complete: ${totalSpotsDrawn} spots drawn for ${currentTargetArea?.name}`);
+            console.log(`Canvas drawing complete: ${spotsRef.current.length} spots drawn`);
+          } catch (error) {
+            console.error('Error in canvas update function:', error);
           }
         }
       });
-      
+
       baiduMap.addOverlay(canvasLayer);
-      setMap(baiduMap);
-    }
-  }, [mapLoaded, map, currentTargetArea, allDataLoaded]);
+      console.log('Canvas layer added to map');
 
-  // Listen for device orientation only
-  useEffect(() => {
-    console.log('MapView: Setting up device orientation listeners');
-    
-    function handleOrientation(event) {
-      let heading = null;
-      if (typeof event.webkitCompassHeading === 'number') {
-        // iOS: webkitCompassHeading is absolute compass heading
-        heading = event.webkitCompassHeading;
-        console.log('MapView: Device orientation (iOS webkitCompassHeading):', heading);
-      } else if (typeof event.alpha === 'number') {
-        // Android: alpha is 0 at north, increases clockwise
-        heading = 360 - event.alpha;
-        console.log('MapView: Device orientation (alpha):', heading);
-      }
-      if (typeof heading === 'number' && !isNaN(heading)) {
-        setUserHeading((heading + 360) % 360);
-      }
-    }
-
-    // Clear any existing listeners first
-    window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
-    window.removeEventListener('deviceorientation', handleOrientation, true);
-
-    // iOS 13+ requires permission for device orientation
-    if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function') {
-      console.log('MapView: iOS detected, requesting device orientation permission...');
-      window.DeviceOrientationEvent.requestPermission().then(result => {
-        console.log('MapView: Device orientation permission result:', result);
-        if (result === 'granted') {
-          console.log('MapView: Permission granted, adding orientation listeners');
-          window.addEventListener('deviceorientationabsolute', handleOrientation, true);
-          window.addEventListener('deviceorientation', handleOrientation, true);
-          setOrientationAvailable(true);
-        } else {
-          console.log('MapView: Permission denied, will use dot marker');
-          setOrientationAvailable(false);
+      // Add touch/click event listeners to canvas for mobile and desktop support
+      setTimeout(() => {
+        if (canvasLayer.canvas) {
+          const handleSpotInteraction = (event) => {
+            event.preventDefault(); // Prevent default touch behavior
+            
+            const rect = canvasLayer.canvas.getBoundingClientRect();
+            let x, y;
+            
+            // Handle different event types
+            if (event.touches && event.touches.length > 0) {
+              // touchstart or touchmove event
+              x = event.touches[0].clientX - rect.left;
+              y = event.touches[0].clientY - rect.top;
+            } else if (event.changedTouches && event.changedTouches.length > 0) {
+              // touchend event
+              x = event.changedTouches[0].clientX - rect.left;
+              y = event.changedTouches[0].clientY - rect.top;
+            } else {
+              // click event
+              x = event.clientX - rect.left;
+              y = event.clientY - rect.top;
+            }
+            
+            console.log('🔍 Spot interaction detected at:', x, y);
+            
+            // Find clicked/touched spot
+            for (const spot of spotsRef.current) {
+              if (spot && spot.location) {
+                const spotPoint = new window.BMap.Point(spot.location.lng, spot.location.lat);
+                const spotPixel = baiduMap.pointToPixel(spotPoint);
+                
+                if (spotPixel) {
+                  const distance = Math.sqrt(
+                    Math.pow(x - spotPixel.x, 2) + Math.pow(y - spotPixel.y, 2)
+                  );
+                  
+                  // Larger touch area for mobile
+                  const touchRadius = (event.touches || event.changedTouches) ? 15 : 10;
+                  
+                  if (distance <= touchRadius) {
+                    console.log('🎯 Spot clicked/touched:', spot.name, 'distance:', distance);
+                    handleSpotClick(spot);
+                    break;
+                  }
+                }
+              }
+            }
+          };
+          
+          // Add both click and touch events for better mobile support
+          canvasLayer.canvas.addEventListener('click', handleSpotInteraction);
+          canvasLayer.canvas.addEventListener('touchend', handleSpotInteraction);
+          
+          // Prevent default touch behaviors that might interfere
+          canvasLayer.canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+          canvasLayer.canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+          
+          console.log('Touch/click event listeners added successfully');
         }
-      }).catch(error => {
-        console.error('MapView: Failed to get device orientation permission:', error);
-        setOrientationAvailable(false);
-      });
-    } else {
-      // Android and older iOS versions don't need permission
-      console.log('MapView: No permission required, adding orientation listeners');
-      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
-      window.addEventListener('deviceorientation', handleOrientation, true);
-      setOrientationAvailable(true);
-    }
-
-    return () => {
-      console.log('MapView: Cleaning up orientation listeners');
-      window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
-      window.removeEventListener('deviceorientation', handleOrientation, true);
+      }, 100);
     };
-  }, []);
 
-  // Handle user location updates separately
-  useEffect(() => {
-    if (map && userLocation) {
-      console.log('Adding user location to map');
-      // Remove existing user markers
-      map.getOverlays().forEach(overlay => {
-        if (overlay._isUserMarker || overlay._isUserLabel) {
-          map.removeOverlay(overlay);
-        }
-      });
-      // Use BD-09 coordinates directly
-      const userBD = userLocation;
-      if (!userBD) return;
-      // Use arrow if orientation available, otherwise use dot
-      const headingToUse = userHeading;
-      console.log('Orientation available:', orientationAvailable, 'Using device orientation heading:', headingToUse);
-      
-      let markerIcon;
-      if (orientationAvailable) {
-        // Arrow SVG marker
-        const arrowSvg = (heading = 0) => {
-          const svg = `<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(${heading},16,16)"><polygon points="16,4 28,28 16,22 4,28" fill="#ef4444" stroke="#fff" stroke-width="2"/></g></svg>`;
-          return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-        };
-        markerIcon = new window.BMap.Icon(arrowSvg(headingToUse), new window.BMap.Size(32, 32));
-      } else {
-        // Red dot SVG marker
-        const dotSvg = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8" fill="#ef4444" stroke="#fff" stroke-width="2"/></svg>`;
-        markerIcon = new window.BMap.Icon('data:image/svg+xml;utf8,' + encodeURIComponent(dotSvg), new window.BMap.Size(24, 24));
+    loadMapAPI();
+
+    // Cleanup function
+    return () => {
+      console.log('MapView: Cleaning up map instance');
+      if (map) {
+        map.clearOverlays();
       }
-      
-      // Add user location marker (arrow or dot)
-      const userPoint = new window.BMap.Point(userBD.lng, userBD.lat);
-      const userMarker = new window.BMap.Marker(userPoint, {
-        icon: markerIcon
-      });
-      userMarker._isUserMarker = true;
-      map.addOverlay(userMarker);
-      // Add "当前位置" label
-      // const userLabel = new window.BMap.Label('当前位置', {
-      //   offset: new window.BMap.Size(0, -36)
-      // });
-      // userLabel.setStyle({
-      //   color: '#ef4444',
-      //   fontSize: '12px',
-      //   fontWeight: 'bold',
-      //   backgroundColor: 'rgba(255, 255, 255, 0.9)',
-      //   border: '1px solid #ef4444',
-      //   padding: '2px 6px',
-      //   borderRadius: '3px'
-      // });
-      // userLabel._isUserLabel = true;
-      // map.addOverlay(userLabel);
-      // userLabel.setPosition(userPoint);
-      console.log('User location marker added to map successfully, orientation available:', orientationAvailable, 'heading:', headingToUse);
-    }
-  }, [map, userLocation, userHeading, orientationAvailable]);
-
-  // Load Baidu Map API
-  useEffect(() => {
-    if (!window.BMap) {
-      const script = document.createElement('script');
-      script.src = `https://api.map.baidu.com/api?v=3.0&ak=${BAIDU_API_KEY}&callback=initBaiduMapView`;
-      script.async = true;
-      
-      window.initBaiduMapView = () => {
-        console.log('MapView: Baidu Map API loaded');
-        setMapLoaded(true);
-      };
-      
-      document.head.appendChild(script);
-      
-      return () => {
-        if (document.head.contains(script)) {
-          document.head.removeChild(script);
-        }
-      };
-    } else {
-      setMapLoaded(true);
-    }
-  }, []);
+    };
+  }, [currentTargetArea]);
 
   // Load spots when current target area changes
   useEffect(() => {
@@ -361,35 +381,47 @@ const MapView = () => {
     }
   }, [currentTargetArea]);
 
-  // Update spots ref when spots change
+  // Auto-center on user location if available and not already centered
   useEffect(() => {
-    console.log('Spots state changed:', spots.length, 'spots for', currentTargetArea?.name);
-    spotsRef.current = spots;
-    // Force map redraw when spots data changes
-    if (map && spots.length > 0) {
-      console.log('Forcing map redraw due to spots data change');
-      const currentViewport = map.getViewport();
-      map.setViewport(currentViewport);
-    }
-  }, [spots, map]);
-
-  // Auto-center on user location ONCE when available
-  useEffect(() => {
-    if (map && userLocation && !hasAutoCentered.current) {
-      const userPoint = new window.BMap.Point(userLocation.lng, userLocation.lat);
-      map.centerAndZoom(userPoint, 17);
+    if (map && userLocation && !hasAutoCentered.current && !currentTargetArea) {
+      console.log('Auto-centering on user location');
+      handleGoToUserLocation();
       hasAutoCentered.current = true;
-      console.log('MapView: Auto-centered on user location at zoom 17');
     }
-  }, [map, userLocation]);
+  }, [map, userLocation, currentTargetArea]);
 
-  if (loading || !allDataLoaded) {
+  // Note: Canvas layer automatically updates when map changes
+  // User location marker will be drawn automatically in the canvas update function
+
+  // Handle device orientation
+  useEffect(() => {
+    if (window.DeviceOrientationEvent) {
+      const handleOrientation = (event) => {
+        if (event.alpha !== null) {
+          setUserHeading(event.alpha);
+          setOrientationAvailable(true);
+        }
+      };
+
+      window.addEventListener('deviceorientation', handleOrientation);
+      return () => window.removeEventListener('deviceorientation', handleOrientation);
+    }
+  }, []);
+
+  // Redirect if no target area selected
+  useEffect(() => {
+    if (!currentTargetArea) {
+      console.log('No target area selected, redirecting to area selector');
+      navigate('/select-area');
+    }
+  }, [currentTargetArea, navigate]);
+
+  if (!currentTargetArea) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="animate-spin text-4xl mb-4">🗺️</div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">加载地图中</h2>
-          <p className="text-gray-600">正在准备景点地图...</p>
+      <div className="min-h-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">正在跳转到景区选择页面...</p>
         </div>
       </div>
     );
@@ -397,77 +429,125 @@ const MapView = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-red-600 text-center">
-          <div className="text-xl font-semibold mb-2">Error</div>
-          <div>{error}</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentTargetArea) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 text-center max-w-md">
-          <div className="text-6xl mb-4">🗺️</div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">无法加载地图</h2>
-          <p className="text-gray-600 mb-4">未找到当前景区信息</p>
+      <div className="min-h-full bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-6xl mb-4">⚠️</div>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={handleSelectArea}
+            className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            选择景区
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="relative w-full h-screen bg-gray-100">
       {/* Map Container */}
-      <div className="flex-1 relative">
-        <div
-          id="baidu-map-container"
-          className="w-full h-full"
-        />
-        
-        {!mapLoaded && (
-          <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin text-4xl mb-4">🔄</div>
-              <p className="text-gray-600">初始化地图中...</p>
-            </div>
+      <div id="baidu-map-container" className="w-full h-full"></div>
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <p className="text-gray-600">加载景点数据中...</p>
           </div>
-        )}
-        
-        {mapLoaded && spots.length === 0 && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md text-center">
-              <div className="text-4xl mb-4">📍</div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">暂无可显示的景点</h3>
-              <p className="text-gray-600 mb-4">
-                当前景区暂时没有景点信息可以在地图上显示。
-              </p>
-            </div>
-          </div>
-        )}
+        </div>
+      )}
+
+      {/* Control Buttons */}
+      <div className="fixed bottom-24 right-4 flex flex-col gap-2 z-40">        
+        {/* Select Area Button */}
+        {/* <button
+          onClick={handleSelectArea}
+          className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg border border-blue-200 transition-colors duration-200 flex items-center justify-center"
+          title="选择景区"
+        >
+          🗺️
+        </button> */}
+
+        {/* User Location Button */}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📍 User location button clicked, userLocation:', userLocation);
+            handleGoToUserLocation();
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📍 User location button touched, userLocation:', userLocation);
+            handleGoToUserLocation();
+          }}
+          disabled={!userLocation}
+          className={`p-3 rounded-full shadow-lg border transition-colors duration-200 flex items-center justify-center touch-manipulation ${
+            userLocation 
+              ? 'bg-red-500 hover:bg-red-600 active:bg-red-700 text-white border-red-200 cursor-pointer' 
+              : 'bg-gray-300 text-gray-500 border-gray-200 cursor-not-allowed'
+          }`}
+          title={userLocation ? "我的位置" : "位置不可用"}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L12 22M12 2L8 6M12 2L16 6" stroke={userLocation ? "#3b82f6" : "#9ca3af"}/>
+          </svg>
+        </button>
+
+        {/* Refresh Button */}
+        {/* <button
+          onClick={handleRefreshMap}
+          className="bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-full shadow-lg border border-purple-200 transition-colors duration-200 flex items-center justify-center"
+          title="刷新地图"
+        >
+          🔄
+        </button> */}
       </div>
 
-      {/* Map Control Buttons - Bottom Right */}
-      <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-2">
-        <button
-          onClick={handleGoToArea}
-          className="bg-white hover:bg-gray-50 text-gray-700 p-3 rounded-full shadow-lg border border-gray-200 transition-colors duration-200 flex items-center justify-center"
-          title="回到景区中心"
-        >
-          🏔️
-        </button>
-        {userLocation && (
-          <button
-            onClick={handleGoToUserLocation}
-            className="bg-white hover:bg-gray-50 text-gray-700 p-3 rounded-full shadow-lg border border-gray-200 transition-colors duration-200 flex items-center justify-center"
-            title="定位到我的位置"
-          >
-            🔴
-          </button>
+      {/* Area Info Panel - Hidden as requested */}
+      {/* <div className="absolute top-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm rounded-lg p-4 shadow-lg z-40 max-w-sm">
+        <div className="flex items-center mb-2">
+          <div 
+            className="w-4 h-4 rounded-full mr-3"
+            style={{ backgroundColor: currentTargetArea.color || '#3b82f6' }}
+          ></div>
+          <h2 className="text-lg font-semibold text-gray-800">{currentTargetArea.name}</h2>
+        </div>
+        
+        {currentTargetArea.description && (
+          <p className="text-gray-600 text-sm mb-2">{currentTargetArea.description}</p>
         )}
-      </div>
+        
+        <div className="text-sm text-gray-500">
+          <span>景点数量: {spots.length}</span>
+          <br />
+          <span>最大缩放: 18级</span>
+          <><br /><span>移动端优化</span></>
+        </div>
+      </div> */}
+
+      {/* User Heading Indicator */}
+      {orientationAvailable && userLocation && (
+        <div className="fixed bottom-20 left-4 bg-white bg-opacity-90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-40">
+          <div className="text-center">
+            <div 
+              className="w-8 h-8 mx-auto mb-1"
+              style={{
+                transform: `rotate(${userHeading}deg)`,
+                transition: 'transform 0.1s ease-out'
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L12 22M12 2L8 6M12 2L16 6" stroke="#3b82f6"/>
+              </svg>
+            </div>
+            <span className="text-xs text-gray-600">方向</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
