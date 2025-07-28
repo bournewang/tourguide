@@ -418,7 +418,7 @@ const MapView = () => {
 
   if (!currentTargetArea) {
     return (
-      <div className="min-h-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="h-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">正在跳转到景区选择页面...</p>
@@ -429,7 +429,7 @@ const MapView = () => {
 
   if (error) {
     return (
-      <div className="min-h-full bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center">
+      <div className="h-full bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-600 text-6xl mb-4">⚠️</div>
           <p className="text-red-600 mb-4">{error}</p>
@@ -445,7 +445,7 @@ const MapView = () => {
   }
 
   return (
-    <div className="relative w-full h-screen bg-gray-100">
+    <div className="relative w-full h-full bg-gray-100">
       {/* Map Container */}
       <div id="baidu-map-container" className="w-full h-full"></div>
 
@@ -460,7 +460,7 @@ const MapView = () => {
       )}
 
       {/* Control Buttons */}
-      <div className="fixed bottom-24 right-4 flex flex-col gap-2 z-40">        
+      <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-40">        
         {/* Select Area Button */}
         {/* <button
           onClick={handleSelectArea}
@@ -531,7 +531,7 @@ const MapView = () => {
 
       {/* User Heading Indicator */}
       {orientationAvailable && userLocation && (
-        <div className="fixed bottom-20 left-4 bg-white bg-opacity-90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-40">
+        <div className="absolute bottom-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-40">
           <div className="text-center">
             <div 
               className="w-8 h-8 mx-auto mb-1"

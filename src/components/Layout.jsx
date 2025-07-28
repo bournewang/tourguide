@@ -21,9 +21,9 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
-      {/* Header Navigation Bar */}
-      <div className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0">
-        <div className="flex items-center px-4 py-3 relative">
+      {/* Header Navigation Bar - Fixed Height */}
+      <div className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0 h-16">
+        <div className="flex items-center px-4 py-3 relative h-full">
           {/* Left side - Back button */}
           {showBack && (
             <button
@@ -50,15 +50,15 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className={`flex-1 overflow-auto ${showBottomNav ? 'pb-20' : ''}`}>
+      {/* Main Content Area - Auto Expand */}
+      <div className="flex-1 overflow-auto">
         {children}
       </div>
 
-      {/* Bottom Navigation Bar */}
+      {/* Bottom Navigation Bar - Fixed Height */}
       {showBottomNav && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-          <div className="flex items-center justify-around px-2 py-3">
+        <div className="bg-white border-t border-gray-200 shadow-lg flex-shrink-0 h-20">
+          <div className="flex items-center justify-around px-2 py-3 h-full">
             {/* Home/List Button */}
             <button
               onClick={() => handleNavigate('/')}
