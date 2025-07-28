@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { validateNFCAccess } from '../utils/nfcValidation';
+
 import { getDeviceFingerprint } from '../utils/deviceFingerprint';
 import { setScenicAreaFile } from '../utils/dataService';
-import { ttsService } from '../utils/ttsService';
 
-const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+const SESSION_DURATION = 120 * 60 * 60 * 1000; // 120 hours（5 days) in milliseconds
 
 const AccessGate = ({ children }) => {
   const [validationState, setValidationState] = useState('checking'); // checking, valid, invalid
@@ -23,11 +22,10 @@ const AccessGate = ({ children }) => {
       
       // Get URL parameters
       const urlParams = new URLSearchParams(window.location.search);
-      const uid = urlParams.get('uid');
-      const vc = urlParams.get('vc');
+      const s = urlParams.get('s');
       const adminParam = urlParams.get('admin');
       
-      console.log('🔍 URL parameters:', { uid, vc, admin: adminParam });
+      console.log('🔍 URL parameters:', { s, admin: adminParam });
       
       // Admin bypass for development
       if (adminParam === '1') {
@@ -51,8 +49,8 @@ const AccessGate = ({ children }) => {
       }
       
       // Check if we have NFC parameters
-      if (uid && vc) {
-        console.log('🏷️ NFC parameters found, showing app and validating in background...');
+      if (s) {
+        console.log('🏷️ NFC s parameter found, showing app and validating in background...');
         
         // Show app immediately
         setShowApp(true);
@@ -60,7 +58,7 @@ const AccessGate = ({ children }) => {
         setBackgroundValidating(true);
         
         // Start background validation
-        validateNFCParametersBackground(uid, vc);
+        validateNFCParametersBackground(s);
       } else {
         console.log('❌ No NFC parameters and no valid session');
         setError({
@@ -85,67 +83,65 @@ const AccessGate = ({ children }) => {
     }
   };
 
-  const validateNFCParametersBackground = async (uid, vc) => {
+  const validateNFCParametersBackground = async (s) => {
     try {
-      // Step 1: Validate NFC parameters using area-level validation
-      console.log('🔐 Background Step 1: Validating NFC parameters...');
-      const nfcValidation = validateNFCAccess(uid, vc);
+      // Step 1: Get device fingerprint
+      console.log('📱 Background Step 1: Getting device fingerprint...');
+      const deviceId = await getDeviceFingerprint();
+      console.log('📱 Device fingerprint:', deviceId);
       
-      if (!nfcValidation.isValid) {
+      // Step 2: Validate NFC parameters and device access in single API call
+      console.log('🔐 Background Step 2: Validating NFC parameters and device access via API...');
+      const API_BASE = import.meta.env.VITE_WORKER_URL || 'https://df.qingfan.wang';
+      const response = await fetch(`${API_BASE}/api/nfc/validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          s,
+          deviceFingerprint: deviceId,
+          maxDevices: 3
+        })
+      });
+
+      const nfcValidation = await response.json();
+      
+      if (!nfcValidation.success || !nfcValidation.isValid) {
         console.log('❌ Background NFC validation failed:', nfcValidation.error);
         setError({
-          type: nfcValidation.error,
-          message: nfcValidation.message,
-          details: `手环编号: ${uid}`
+          type: nfcValidation.error || 'VALIDATION_FAILED',
+          message: nfcValidation.message || '验证失败',
+          details: `验证参数: ${s}`
         });
         setValidationState('invalid');
         setBackgroundValidating(false);
         return;
       }
       
-      console.log('✅ Background NFC validation successful for area:', nfcValidation.areaName);
-      
-      // Step 2: Set the scenic area file for this area
-      console.log('🏞️ Background Step 2: Setting scenic area file:', nfcValidation.scenicAreaFile);
-      setScenicAreaFile(nfcValidation.scenicAreaFile);
-      
-      // Step 3: Get device fingerprint
-      console.log('📱 Background Step 3: Getting device fingerprint...');
-      const deviceId = await getDeviceFingerprint();
-      console.log('📱 Device fingerprint:', deviceId);
-      
-      // Step 4: Check device access with Cloudflare Worker
-      console.log('☁️ Background Step 4: Checking device access...');
-      const validationResult = await ttsService.validateDeviceAccess(uid, deviceId, 3);
-      
-      if (!validationResult.success) {
-        console.log('❌ Background device access validation failed:', validationResult);
-        
-        if (validationResult.error === 'Device limit exceeded') {
-          setError({
-            type: 'DEVICE_LIMIT_EXCEEDED',
-            message: '设备数量已达上限',
-            details: `该UID已绑定${validationResult.deviceCount}台设备，最多允许${validationResult.maxDevices}台`
-          });
-        } else {
-          setError({
-            type: 'ACCESS_DENIED',
-            message: '访问被拒绝',
-            details: validationResult.error || '设备验证失败'
-          });
-        }
+      // Check device access result
+      if (nfcValidation.deviceAccess === false) {
+        console.log('❌ Background device access denied:', nfcValidation);
+        setError({
+          type: nfcValidation.error || 'DEVICE_LIMIT_EXCEEDED',
+          message: nfcValidation.message || '设备数量已达上限',
+          details: `该UID已绑定${nfcValidation.deviceCount}台设备，最多允许${nfcValidation.maxDevices}台`
+        });
         setValidationState('invalid');
         setBackgroundValidating(false);
         return;
       }
       
-      console.log('✅ Background device access granted:', validationResult.data);
+      console.log('✅ Background NFC validation and device access successful for UID:', nfcValidation.uid);
       
-      // Step 5: Store session and redirect
-      console.log('💾 Background Step 5: Storing session...');
+      // Step 3: Set the scenic area file for this area
+      console.log('🏞️ Background Step 3: Setting scenic area file:', nfcValidation.scenicAreaFile);
+      setScenicAreaFile(nfcValidation.scenicAreaFile);
+      
+      // Step 4: Store session and redirect
+      console.log('💾 Background Step 4: Storing session...');
       const sessionData = {
-        uid,
-        areaPrefix: nfcValidation.areaPrefix,
+        uid: nfcValidation.uid,
         areaName: nfcValidation.areaName,
         scenicAreaFile: nfcValidation.scenicAreaFile,
         deviceId,
@@ -153,9 +149,9 @@ const AccessGate = ({ children }) => {
         expiresAt: Date.now() + SESSION_DURATION,
         // Store validation result for display
         validationResult: {
-          deviceCount: validationResult.data?.deviceCount || 1,
-          maxDevices: validationResult.data?.maxDevices || 3,
-          isNewDevice: validationResult.data?.isNewDevice || false
+          deviceCount: nfcValidation.deviceCount || 1,
+          maxDevices: nfcValidation.maxDevices || 3,
+          isNewDevice: nfcValidation.reason === 'Under device limit'
         }
       };
       

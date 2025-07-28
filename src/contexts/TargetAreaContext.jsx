@@ -31,6 +31,12 @@ export const TargetAreaProvider = ({ children }) => {
     setIsDebugMode(debugMode);
     console.log('Debug mode:', debugMode, '(from URL:', debugParam === '1', ', from localStorage:', storedDebugMode, ')');
     
+    // Load auto-selection preference
+    const storedAutoSelection = localStorage.getItem('autoSelectionEnabled');
+    const autoSelectionEnabled = storedAutoSelection === null ? true : storedAutoSelection === 'true';
+    setIsAutoSelectionEnabled(autoSelectionEnabled);
+    console.log('Auto-selection enabled:', autoSelectionEnabled, '(from localStorage:', storedAutoSelection, ')');
+    
     if (debugMode) {
       console.log('Debug mode active, stopping real geolocation');
       
@@ -328,13 +334,15 @@ export const TargetAreaProvider = ({ children }) => {
     }
   };
 
-  // Auto-select target area based on user location (both automatic and manual)
+  // Auto-select target area based on user location (only if auto-selection is enabled)
   useEffect(() => {
-    if (userLocation && scenicAreas.length > 0 && !isDebugMode) {
-      console.log('User location changed, auto-selecting target area');
+    if (userLocation && scenicAreas.length > 0 && !isDebugMode && isAutoSelectionEnabled) {
+      console.log('User location changed, auto-selecting target area (auto mode enabled)');
       autoSelectTargetArea();
+    } else if (userLocation && scenicAreas.length > 0 && !isDebugMode && !isAutoSelectionEnabled) {
+      console.log('User location changed, but auto-selection is disabled (manual mode)');
     }
-  }, [userLocation, scenicAreas, isDebugMode]);
+  }, [userLocation, scenicAreas, isDebugMode, isAutoSelectionEnabled]);
 
   const setTargetArea = (area) => {
     setCurrentTargetArea(area);
@@ -352,10 +360,12 @@ export const TargetAreaProvider = ({ children }) => {
     lastSpotsCalculationRef.current = newLocation;
     lastAreaCalculationRef.current = newLocation;
     
-    // Trigger area selection for mock locations in debug mode
-    if (isDebugMode && scenicAreas.length > 0) {
-      console.log('Debug mode: Triggering area selection for mock location');
+    // Trigger area selection for mock locations in debug mode (only if auto-selection is enabled)
+    if (isDebugMode && scenicAreas.length > 0 && isAutoSelectionEnabled) {
+      console.log('Debug mode: Triggering area selection for mock location (auto mode enabled)');
       autoSelectTargetArea();
+    } else if (isDebugMode && scenicAreas.length > 0 && !isAutoSelectionEnabled) {
+      console.log('Debug mode: Mock location updated, but auto-selection is disabled (manual mode)');
     }
   };
 
@@ -367,6 +377,20 @@ export const TargetAreaProvider = ({ children }) => {
     // Start real geolocation when exiting debug mode
     console.log('Starting real geolocation after exiting debug mode');
     startLocationWatching();
+  };
+
+  // Auto-selection control functions
+  const toggleAutoSelection = () => {
+    const newValue = !isAutoSelectionEnabled;
+    setIsAutoSelectionEnabled(newValue);
+    localStorage.setItem('autoSelectionEnabled', newValue.toString());
+    console.log('Auto-selection toggled:', newValue ? 'enabled' : 'disabled');
+  };
+
+  const setAutoSelectionEnabled = (enabled) => {
+    setIsAutoSelectionEnabled(enabled);
+    localStorage.setItem('autoSelectionEnabled', enabled.toString());
+    console.log('Auto-selection set to:', enabled ? 'enabled' : 'disabled');
   };
 
   return (
@@ -385,7 +409,10 @@ export const TargetAreaProvider = ({ children }) => {
         exitDebugMode,
         setTargetArea,
         updateUserLocation,
-        updateMockLocation
+        updateMockLocation,
+        isAutoSelectionEnabled,
+        toggleAutoSelection,
+        setAutoSelectionEnabled
       }}
     >
       {children}
