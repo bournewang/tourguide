@@ -6,8 +6,8 @@
 set -e  # Exit on any error
 
 # Configuration
-IMAGES_DIR="public/assets/images"
-THUMBS_DIR="public/assets/thumb"
+IMAGES_DIR="assets/dengfeng/images"
+THUMBS_DIR="assets/dengfeng/thumb"
 THUMB_SUFFIX=""  # No suffix needed since they're in separate directory
 THUMB_SIZE="300x200"  # Width x Height for thumbnails
 QUALITY=85           # JPEG quality (1-100)
@@ -142,7 +142,8 @@ process_spot_directory() {
                 if create_thumbnail "$image_file" "$thumb_path"; then
                     ((processed++))
                     # Break after creating first thumbnail
-                    break 3  # Break out of all nested loops
+                    # break 3  # Break out of all nested loops
+                    echo "Processed: $filename"
                 else
                     ((failed++))
                 fi

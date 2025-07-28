@@ -53,6 +53,7 @@ function showUsage() {
   --ai-provider <aliyun|openai>  选择AI提供商 (默认: aliyun)
   --overwrite-existing    覆盖已存在的音频文件，并增加版本号
   --force-regenerate      强制重新生成解说词，即使已存在
+  --tts-only              仅从现有描述生成TTS音频，不重新生成解说词
   --help                  显示帮助信息
 
 示例:
@@ -61,6 +62,7 @@ function showUsage() {
   node process-spot-narration.js --dry-run public/data/spots/shaolinsi.json ./public/assets/audio/少林寺/
   node process-spot-narration.js --force-regenerate public/data/spots/shaolinsi.json ./public/assets/audio/少林寺/
   node process-spot-narration.js --area-name "嵩山少林寺" public/data/spots/shaolinsi.json ./public/assets/audio/少林寺/
+  node process-spot-narration.js --tts-only public/data/spots/shaolinsi.json ./public/assets/audio/少林寺/
 
 环境变量:
   AZURE_SPEECH_KEY     - Azure Speech API密钥
@@ -85,6 +87,7 @@ function parseArguments() {
     dryRun: false,
     overwriteExisting: false,
     forceRegenerate: false,
+    ttsOnly: false,
     aiProvider: 'aliyun',
     areaName: null
   };
@@ -149,6 +152,9 @@ function parseArguments() {
         break;
       case '--force-regenerate':
         options.forceRegenerate = true;
+        break;
+      case '--tts-only':
+        options.ttsOnly = true;
         break;
       case '--ai-provider':
         if (i + 1 < args.length) {
@@ -218,7 +224,7 @@ function validateOptions(options) {
   if (!options.outputDir) {
     errors.push('必须指定输出目录路径');
   }
-  if (!options.openaiKey && options.aiProvider === 'aliyun') {
+  if (!options.ttsOnly && !options.openaiKey && options.aiProvider === 'aliyun') {
     errors.push('必须设置 Aliyun AI (DashScope) API 密钥 (使用 -o 参数或 DASHSCOPE_API_KEY 环境变量)');
   }
   if (!options.dryRun && !options.key) {
@@ -391,9 +397,9 @@ async function processSpot(spot, options) {
     audioFileName = `${safeName}.mp3`;
   }
   audioFile = path.join(options.outputDir, audioFileName);
-  // Compute the relative path from the public directory
-  const relPath = path.relative(path.resolve(__dirname, '../public'), audioFile);
-  audioPath = '/' + relPath.replace(/\\/g, '/');
+  // Generate audio path in the format: /assets/audio/areaName/spotName.mp3
+  const areaName = path.basename(options.outputDir);
+  audioPath = `/assets/audio/${areaName}/${audioFileName}`;
   // Check if files already exist
   if (!options.overwriteExisting && options.skipExisting && fs.existsSync(audioFile)) {
     console.log(`⏭️  跳过已存在的文件: ${safeName}`);
@@ -402,12 +408,27 @@ async function processSpot(spot, options) {
   try {
     // Generate narration text
     console.log(`🎯 处理景点: ${spot.name}`);
-    let narration = await generateNarrationWithAI(spot, options);
+    let narration;
+    
+    if (options.ttsOnly) {
+      // Use existing description for TTS only
+      if (!spot.description || !spot.description.trim()) {
+        console.log(`⏭️  跳过无描述的景点: ${spot.name}`);
+        return { spot, updated: false };
+      }
+      narration = spot.description;
+      console.log(`📝 使用现有描述生成TTS: ${spot.name} (${narration.length} 字符)`);
+    } else {
+      // Generate new narration with AI
+      narration = await generateNarrationWithAI(spot, options);
+    }
+    
     // Ensure audio directory exists
     if (!fs.existsSync(options.outputDir)) {
       fs.mkdirSync(options.outputDir, { recursive: true });
       console.log(`📁 创建音频目录: ${options.outputDir}`);
     }
+    
     if (options.dryRun) {
       console.log(`✅ 仅生成文本完成: ${spot.name}`);
       return {
@@ -415,18 +436,24 @@ async function processSpot(spot, options) {
         updated: true
       };
     }
+    
     // Generate audio
     const voice = VOICE_MAPPING[options.voice];
     const audioBuffer = await synthesizeSpeech(narration, voice, options.rate, options.key, options.region);
     // Save audio file
     fs.writeFileSync(audioFile, audioBuffer);
     console.log(`🎵 保存音频: ${audioFile}`);
-    // Update spot with new description, audio file path, and version if needed
+    // Update spot with new description (only if not tts-only), audio file path, and version if needed
     const updatedSpot = {
       ...spot,
-      description: narration,
       audioFile: audioPath
     };
+    
+    // Only update description if not in tts-only mode
+    if (!options.ttsOnly) {
+      updatedSpot.description = narration;
+    }
+    
     if (options.overwriteExisting && spot.audioFile) {
       updatedSpot.version = version;
     }
@@ -444,6 +471,9 @@ async function processSpots(options) {
   console.log(`📁 输出目录: ${options.outputDir}`);
   console.log(`🎤 语音类型: ${options.voice}`);
   console.log(`⏱️  目标时长: ${options.duration} 分钟`);
+  if (options.ttsOnly) {
+    console.log('🎵 仅生成TTS音频模式 (使用现有描述)');
+  }
   if (options.dryRun) {
     console.log('🔍 仅生成文本模式');
   }
@@ -461,10 +491,30 @@ async function processSpots(options) {
   // Process each spot
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
-    // Skip if already has description or audioFile, unless forceRegenerate or overwriteExisting is set
-    if (!options.forceRegenerate && !options.overwriteExisting && ((spot.description && spot.description.trim()) || (spot.audioFile && spot.audioFile.trim()))) {
-      console.log(`⏭️  已有解说词或音频，跳过: ${spot.name}`);
+    
+    // Skip hidden spots
+    if (spot.display === 'hide') {
+      console.log(`⏭️  隐藏景点，跳过: ${spot.name}`);
       continue;
+    }
+    
+    // Skip logic for different modes
+    if (options.ttsOnly) {
+      // In TTS-only mode, skip if no description or already has audio file (unless overwriting)
+      if (!spot.description || !spot.description.trim()) {
+        console.log(`⏭️  无描述，跳过: ${spot.name}`);
+        continue;
+      }
+      if (!options.overwriteExisting && spot.audioFile && spot.audioFile.trim()) {
+        console.log(`⏭️  已有音频文件，跳过: ${spot.name}`);
+        continue;
+      }
+    } else {
+      // In normal mode, skip if already has description or audioFile, unless forceRegenerate or overwriteExisting is set
+      if (!options.forceRegenerate && !options.overwriteExisting && ((spot.description && spot.description.trim()) || (spot.audioFile && spot.audioFile.trim()))) {
+        console.log(`⏭️  已有解说词或音频，跳过: ${spot.name}`);
+        continue;
+      }
     }
     try {
       const result = await processSpot(spot, options);

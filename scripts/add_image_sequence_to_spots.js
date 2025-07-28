@@ -11,7 +11,8 @@ if (process.argv.length < 4) {
 
 const spotsFile = process.argv[2];
 const scenicAreaName = process.argv[3];
-const imagesRoot = path.resolve('public/assets/images', scenicAreaName);
+// const imagesRoot = path.resolve('public/assets/images', scenicAreaName);
+const imagesRoot = path.resolve('assets/dengfeng/images', scenicAreaName);
 
 if (!fs.existsSync(spotsFile)) {
   console.error('File not found:', spotsFile);
