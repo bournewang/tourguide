@@ -460,7 +460,7 @@ const MapView = () => {
       )}
 
       {/* Control Buttons */}
-      <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-40">        
+      <div className="absolute bottom-24 right-4 flex flex-col gap-2 z-40">        
         {/* Select Area Button */}
         {/* <button
           onClick={handleSelectArea}
@@ -531,7 +531,7 @@ const MapView = () => {
 
       {/* User Heading Indicator */}
       {orientationAvailable && userLocation && (
-        <div className="absolute bottom-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-40">
+        <div className="absolute top-4 right-4 bg-white bg-opacity-90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-40">
           <div className="text-center">
             <div 
               className="w-8 h-8 mx-auto mb-1"
