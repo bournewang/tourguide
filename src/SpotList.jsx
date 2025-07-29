@@ -3,20 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
 import { calculateDistance, formatDistance } from './utils/coordinateUtils';
 import { ttsService } from './utils/ttsService';
-import { getValidationStatus, formatValidationStatus } from './utils/validationStatus';
+
 import { dataService } from './utils/dataService';
-import ScenicAreaSelector from './components/ScenicAreaSelector';
 
 function SpotList() {
   const navigate = useNavigate();
-  const { currentTargetArea, userLocation, locationError, scenicAreas, setTargetArea } = useTargetArea();
+  const { currentTargetArea, userLocation, locationError, scenicAreas } = useTargetArea();
   const [spots, setSpots] = useState([]);
   const [spotsWithDistance, setSpotsWithDistance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cacheStatus, setCacheStatus] = useState(null);
-  const [showAreaSelector, setShowAreaSelector] = useState(false);
-  const [showAreaModal, setShowAreaModal] = useState(false);
-  const [validationStatus, setValidationStatus] = useState(null);
+
   
   // Fallback: if no currentTargetArea after 3 seconds, show error
   useEffect(() => {
@@ -30,18 +27,7 @@ function SpotList() {
     return () => clearTimeout(timeout);
   }, [currentTargetArea, scenicAreas]);
 
-  // Show area selector after 10 seconds if no location and no error
-  useEffect(() => {
-    if (!userLocation && !locationError) {
-      const timeout = setTimeout(() => {
-        console.log('Location fetch timeout - showing area selector');
-        setShowAreaSelector(true);
-      }, 10000);
-      return () => clearTimeout(timeout);
-    } else {
-      setShowAreaSelector(false);
-    }
-  }, [userLocation, locationError]);
+
 
   // Load spots based on current target area
   useEffect(() => {
@@ -77,11 +63,6 @@ function SpotList() {
           const status = ttsService.getCacheStatus();
           setCacheStatus(status);
           
-          // Load validation status
-          const validationInfo = getValidationStatus();
-          console.log('validationInfo', validationInfo);
-          setValidationStatus(validationInfo);
-          
         } catch (error) {
           console.error('Failed to load spots from Cloudflare:', error);
           setSpots([]);
@@ -100,45 +81,7 @@ function SpotList() {
     loadSpots();
   }, [currentTargetArea]);
 
-  // Update validation status periodically and when session changes
-  useEffect(() => {
-    const updateValidationStatus = () => {
-      const validationInfo = getValidationStatus();
-      console.log('validationInfo updated:', validationInfo);
-      setValidationStatus(validationInfo);
-    };
-    
-    // Update immediately
-    updateValidationStatus();
-    
-    // Listen for localStorage changes (when AccessGate completes validation)
-    const handleStorageChange = (e) => {
-      if (e.key === 'nfc_session') {
-        console.log('Session updated in localStorage, refreshing validation status');
-        updateValidationStatus();
-      }
-    };
-    
-    // Add event listener for storage changes
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Also listen for custom event (for same-page updates)
-    const handleSessionUpdate = () => {
-      console.log('Session updated via custom event, refreshing validation status');
-      updateValidationStatus();
-    };
-    
-    window.addEventListener('nfc-session-updated', handleSessionUpdate);
-    
-    // Update every 5 minutes
-    const interval = setInterval(updateValidationStatus, 5 * 60 * 1000);
-    
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('nfc-session-updated', handleSessionUpdate);
-    };
-  }, []);
+
 
   // Calculate distances when user location or spots change
   useEffect(() => {
@@ -232,7 +175,7 @@ function SpotList() {
               )}
             </div>
           )} */}
-
+          
           {/* Location status */}
           {locationError ? (
             <div className="bg-red-50 rounded-xl p-3 mb-4 text-center shadow-sm">
@@ -315,11 +258,7 @@ function SpotList() {
             </div>
           )}
 
-          {validationStatus && (
-            <div className="mt-2 text-xs text-green-600 font-medium">
-              🏷️ NFC验证: {formatValidationStatus(validationStatus)}
-            </div>
-          )}
+
 
           {userLocation && <p className="text-xs text-gray-500">
               {userLocation.lng.toFixed(6)}°, {userLocation.lat.toFixed(6)}°

@@ -10,7 +10,8 @@ import ScenicAreaSelector from './pages/ScenicAreaSelector'
 import AccessGate from './components/AccessGate'
 import Layout from './components/Layout'
 import { TargetAreaProvider } from './contexts/TargetAreaContext'
-import DirectionDebug from './DirectionDebug';
+import DirectionDebug from './DirectionDebug'
+import './utils/sessionTest' // Import for testing utilities
 
 // Main App Layout Component
 function AppLayout({ isAdmin }) {

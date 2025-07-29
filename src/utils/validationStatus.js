@@ -23,7 +23,7 @@ export const getValidationStatus = () => {
       isNewDevice: session.validationResult?.isNewDevice || false,
       timestamp: session.timestamp,
       expiresAt: session.expiresAt,
-      timeRemaining: Math.round((session.expiresAt - now) / (1000 * 60 * 60)) // hours
+      timeRemaining: Math.round((session.expiresAt - now) / (1000 * 60)) // minutes
     };
   } catch (error) {
     console.error('Error getting validation status:', error);

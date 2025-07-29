@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 
 import { getDeviceFingerprint } from '../utils/deviceFingerprint';
 import { setScenicAreaFile } from '../utils/dataService';
+import sessionMonitor from '../utils/sessionMonitor';
 
-const SESSION_DURATION = 120 * 60 * 60 * 1000; // 120 hours（5 days) in milliseconds
+// Default session duration (will be overridden by API response)
+const DEFAULT_SESSION_DURATION = 120 * 60 * 60 * 1000; // 120 hours（5 days) in milliseconds
 
 const AccessGate = ({ children }) => {
   const [validationState, setValidationState] = useState('checking'); // checking, valid, invalid
@@ -11,10 +13,69 @@ const AccessGate = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [showApp, setShowApp] = useState(false);
   const [backgroundValidating, setBackgroundValidating] = useState(false);
+  
+
 
   useEffect(() => {
     checkAccess();
   }, []);
+
+  // Session monitoring effect
+  useEffect(() => {
+    // Start session monitoring when validation is valid
+    if (validationState === 'valid') {
+      sessionMonitor.startMonitoring(
+        // On session expired
+        () => {
+          console.log('Session expired, using existing error mechanism');
+          const expiredMessage = getSessionExpiredMessage();
+          localStorage.removeItem('nfc_session');
+          setValidationState('invalid');
+          setError({
+            type: 'NO_NFC_ACCESS',
+            message: expiredMessage,
+            // details: '您的访问会话已过期，请重新扫描导游手环进行验证'
+          });
+        },
+        // On session warning (disabled for better UX)
+        (warningData) => {
+          console.log('Session warning triggered (disabled):', warningData);
+        }
+      );
+    }
+
+    // Listen for new session creation (when NFC is re-scanned)
+    const handleNewSession = () => {
+      console.log('New session created, restarting monitoring');
+      
+      // Restart monitoring with new session
+      sessionMonitor.restartMonitoring(
+        // On session expired
+        () => {
+          console.log('Session expired, using existing error mechanism');
+          const expiredMessage = getSessionExpiredMessage();
+          localStorage.removeItem('nfc_session');
+          setValidationState('invalid');
+          setError({
+            type: 'NO_NFC_ACCESS',
+            message: expiredMessage,
+            // details: '您的访问会话已过期，请重新扫描导游手环进行验证'
+          });
+        },
+        // On session warning (disabled for better UX)
+        (warningData) => {
+          console.log('Session warning triggered (disabled):', warningData);
+        }
+      );
+    };
+
+    window.addEventListener('nfc-session-updated', handleNewSession);
+
+    return () => {
+      sessionMonitor.stopMonitoring();
+      window.removeEventListener('nfc-session-updated', handleNewSession);
+    };
+  }, [validationState]);
 
   const checkAccess = async () => {
     try {
@@ -64,7 +125,7 @@ const AccessGate = ({ children }) => {
         setError({
           type: 'NO_NFC_ACCESS',
           message: '请使用导游手环访问本应用',
-          details: '本应用需要通过导游手环进行访问验证'
+          // details: '本应用需要通过导游手环进行访问验证'
         });
         setValidationState('invalid');
         setShowApp(true); // Show app so error overlay can be displayed
@@ -140,18 +201,24 @@ const AccessGate = ({ children }) => {
       
       // Step 4: Store session and redirect
       console.log('💾 Background Step 4: Storing session...');
+      
+      // Use session duration from API response, or fallback to default
+      const sessionDuration = nfcValidation.sessionDuration || DEFAULT_SESSION_DURATION;
+      console.log('⏰ Session duration:', sessionDuration, 'ms (', Math.round(sessionDuration / (1000 * 60)), 'minutes)');
+      
       const sessionData = {
         uid: nfcValidation.uid,
         areaName: nfcValidation.areaName,
         scenicAreaFile: nfcValidation.scenicAreaFile,
         deviceId,
         timestamp: Date.now(),
-        expiresAt: Date.now() + SESSION_DURATION,
+        expiresAt: Date.now() + sessionDuration,
         // Store validation result for display
         validationResult: {
           deviceCount: nfcValidation.deviceCount || 1,
           maxDevices: nfcValidation.maxDevices || 3,
-          isNewDevice: nfcValidation.reason === 'Under device limit'
+          isNewDevice: nfcValidation.reason === 'Under device limit',
+          policy: nfcValidation.policy || 'Unknown'
         }
       };
       
@@ -185,6 +252,31 @@ const AccessGate = ({ children }) => {
   };
 
 
+
+  const getSessionExpiredMessage = () => {
+    try {
+      const sessionData = localStorage.getItem('nfc_session');
+      if (!sessionData) {
+        return '会话已过期，请重新触碰导游手环打开使用';
+      }
+      
+      const session = JSON.parse(sessionData);
+      
+      // Check if this was a demo tag based on UID or policy
+      const isDemoTag = session?.uid?.startsWith('demo-') || 
+                       session?.validationResult?.policy?.includes('Demo') ||
+                       session?.validationResult?.policy?.includes('demo');
+      
+      if (isDemoTag) {
+        return '试用已结束，请重新触碰导游手环打开使用';
+      } else {
+        return '会话已过期，请重新触碰导游手环打开使用';
+      }
+    } catch (error) {
+      console.error('Error parsing session data for message:', error);
+      return '会话已过期，请重新触碰导游手环打开使用';
+    }
+  };
 
   const checkExistingSession = () => {
     try {
@@ -341,6 +433,8 @@ const AccessGate = ({ children }) => {
           </div>
         </div>
       )}
+
+
     </div>
   );
 };

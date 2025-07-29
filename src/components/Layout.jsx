@@ -1,11 +1,41 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTargetArea } from '../hooks/useTargetArea';
+import { getValidationStatus } from '../utils/validationStatus';
 
 const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdmin = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDebugMode, currentTargetArea } = useTargetArea();
+  const [sessionStatus, setSessionStatus] = useState(null);
+
+  // Update session status periodically
+  useEffect(() => {
+    const updateSessionStatus = () => {
+      const status = getValidationStatus();
+      setSessionStatus(status);
+    };
+
+    // Update immediately
+    updateSessionStatus();
+
+    // Update every minute
+    const interval = setInterval(updateSessionStatus, 60 * 1000);
+
+    // Listen for session updates
+    const handleSessionUpdate = () => {
+      updateSessionStatus();
+    };
+
+    window.addEventListener('nfc-session-updated', handleSessionUpdate);
+    window.addEventListener('session-expired', handleSessionUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('nfc-session-updated', handleSessionUpdate);
+      window.removeEventListener('session-expired', handleSessionUpdate);
+    };
+  }, []);
 
   const handleBack = () => {
     navigate('/');
@@ -20,7 +50,7 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="h-[100dvh] bg-gray-50 flex flex-col">
       {/* Header Navigation Bar - Fixed Height */}
       <div className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0 h-16">
         <div className="flex items-center px-4 py-3 relative h-full">
@@ -43,9 +73,13 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
             </h1>
           </div>
 
-          {/* Right side - Additional actions can be added here */}
+          {/* Right side - Session status indicator */}
           <div className="flex items-center space-x-2">
-            {/* Placeholder for future actions */}
+            {sessionStatus && (
+              <div className="flex items-center space-x-1 text-xs">
+                {sessionStatus.timeRemaining} 分钟后失效
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -55,9 +89,9 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
         {children}
       </div>
 
-      {/* Bottom Navigation Bar - Fixed Height */}
+      {/* Bottom Navigation Bar - Fixed Height with Safe Area */}
       {showBottomNav && (
-        <div className="bg-white border-t border-gray-200 shadow-lg flex-shrink-0 h-20">
+        <div className="bg-white border-t border-gray-200 shadow-lg flex-shrink-0 h-20 pb-safe">
           <div className="flex items-center justify-around px-2 py-3 h-full">
             {/* Home/List Button */}
             <button

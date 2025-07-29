@@ -15,6 +15,8 @@ const MapView = () => {
   const [orientationAvailable, setOrientationAvailable] = useState(false);
   const hasAutoCentered = useRef(false);
   const spotsRef = useRef([]);
+  const canvasLayerRef = useRef(null);
+  const userLocationRef = useRef(null);
 
   const BAIDU_API_KEY = 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv';
 
@@ -178,10 +180,13 @@ const MapView = () => {
             
             console.log('🔍 Canvas update - drawing spots:', spotsRef.current.length);
 
+            // Get current user location from the ref
+            const currentUserLocation = userLocationRef.current;
+            
             // Draw user location marker
-            if (userLocation && userLocation.lat && userLocation.lng) {
+            if (currentUserLocation && currentUserLocation.lat && currentUserLocation.lng) {
               try {
-                const userPoint = new window.BMap.Point(userLocation.lng, userLocation.lat);
+                const userPoint = new window.BMap.Point(currentUserLocation.lng, currentUserLocation.lat);
                 const userPixel = baiduMap.pointToPixel(userPoint);
                 
                 if (userPixel && userPixel.x !== undefined && userPixel.y !== undefined) {
@@ -297,6 +302,7 @@ const MapView = () => {
       });
 
       baiduMap.addOverlay(canvasLayer);
+      canvasLayerRef.current = canvasLayer;
       console.log('Canvas layer added to map');
 
       // Add touch/click event listeners to canvas for mobile and desktop support
@@ -390,8 +396,26 @@ const MapView = () => {
     }
   }, [map, userLocation, currentTargetArea]);
 
-  // Note: Canvas layer automatically updates when map changes
-  // User location marker will be drawn automatically in the canvas update function
+  // Update userLocationRef and trigger canvas update when user location changes
+  useEffect(() => {
+    userLocationRef.current = userLocation;
+    
+    if (map && userLocation && canvasLayerRef.current) {
+      console.log('User location changed, triggering canvas update');
+      console.log('Current user location:', userLocation);
+      
+      // Trigger a small map movement to force canvas update
+      const currentCenter = map.getCenter();
+      const offsetPoint = new window.BMap.Point(
+        currentCenter.lng + 0.000001, 
+        currentCenter.lat + 0.000001
+      );
+      map.setCenter(offsetPoint);
+      setTimeout(() => {
+        map.setCenter(currentCenter);
+      }, 10);
+    }
+  }, [map, userLocation]);
 
   // Handle device orientation
   useEffect(() => {
