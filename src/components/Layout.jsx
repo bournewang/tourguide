@@ -138,8 +138,8 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
               <span className="text-xs">选择景区</span>
             </button>
 
-            {/* Boundaries Button - Only show in debug mode */}
-            {isDebugMode && (
+            {/* Boundaries Button - Only show in debug mode AND development */}
+            {isDebugMode && import.meta.env.DEV && (
               <button
                 onClick={() => handleNavigate('/boundaries')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
@@ -155,8 +155,8 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
               </button>
             )}
 
-            {/* Editor Mode Button - Only show in admin mode */}
-            {isAdmin && (
+            {/* Editor Mode Button - Only show in admin mode AND development */}
+            {isAdmin && import.meta.env.DEV && (
               <button
                 onClick={() => handleNavigate('/editor')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${

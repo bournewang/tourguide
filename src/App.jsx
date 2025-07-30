@@ -3,15 +3,19 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './App.css'
 import SpotList from './SpotList'
 import SpotDetail from './SpotDetail'
-import BoundaryView from './BoundaryView'
 import MapView from './MapView'
-import NarrationEditor from './NarrationEditor'
 import ScenicAreaSelector from './pages/ScenicAreaSelector'
 import AccessGate from './components/AccessGate'
 import Layout from './components/Layout'
 import { TargetAreaProvider } from './contexts/TargetAreaContext'
-import DirectionDebug from './DirectionDebug'
-import './utils/sessionTest' // Import for testing utilities
+
+// Conditionally import admin/debug components only in development
+const isDevelopment = import.meta.env.DEV;
+
+// Import testing utilities only in development
+if (isDevelopment) {
+  import('./utils/sessionTest');
+}
 
 // Main App Layout Component
 function AppLayout({ isAdmin }) {
@@ -43,32 +47,41 @@ function AppLayout({ isAdmin }) {
           </Layout>
         } />
         
-        <Route path="/boundaries" element={
-          <Layout title="管理" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
-            <BoundaryView />
-          </Layout>
-        } />
-        
-        {/* Admin routes */}
-        <Route 
-          path="/editor" 
-          element={isAdmin ? (
-            <Layout title="编辑模式" showBack={false} showBottomNav={false}>
-              <NarrationEditor />
-            </Layout>
-          ) : (
-            <Navigate to="/" replace />
-          )} 
-        />
-        
-        {/* Debug route - redirects to boundaries */}
-        <Route 
-          path="/debug" 
-          element={<Navigate to="/boundaries" replace />} 
-        />
-        
-        {/* Direction debug page */}
-        <Route path="/direction-debug" element={<DirectionDebug />} />
+        {/* Admin routes - only available in development */}
+        {isDevelopment && (
+          <>
+            <Route path="/boundaries" element={
+              <Layout title="管理" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
+                <div className="p-8 text-center">
+                  <h2 className="text-xl font-bold mb-4">BoundaryView - Development Only</h2>
+                  <p className="text-gray-600">This page is only available in development mode.</p>
+                </div>
+              </Layout>
+            } />
+            
+            <Route path="/editor" element={
+              isAdmin ? (
+                <Layout title="编辑模式" showBack={false} showBottomNav={false}>
+                  <div className="p-8 text-center">
+                    <h2 className="text-xl font-bold mb-4">NarrationEditor - Development Only</h2>
+                    <p className="text-gray-600">This page is only available in development mode.</p>
+                  </div>
+                </Layout>
+              ) : (
+                <Navigate to="/" replace />
+              )
+            } />
+            
+            <Route path="/debug" element={<Navigate to="/boundaries" replace />} />
+            
+            <Route path="/direction-debug" element={
+              <div className="p-8 text-center">
+                <h2 className="text-xl font-bold mb-4">DirectionDebug - Development Only</h2>
+                <p className="text-gray-600">This page is only available in development mode.</p>
+              </div>
+            } />
+          </>
+        )}
         
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
