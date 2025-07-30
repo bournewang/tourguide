@@ -75,7 +75,7 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
 
           {/* Right side - Session status indicator */}
           <div className="flex items-center space-x-2">
-            {sessionStatus && (
+            {sessionStatus && sessionStatus.timeRemaining < 60 && (
               <div className="flex items-center space-x-1 text-xs">
                 {sessionStatus.timeRemaining} 分钟后失效
               </div>
