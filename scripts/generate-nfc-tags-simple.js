@@ -22,6 +22,38 @@ const LAST_NUMBER_FILE = path.join(OUTPUT_DIR, 'last-generated-number.txt');
 // Get command line arguments
 const args = process.argv.slice(2);
 
+// Check if user wants to generate demo tags
+if (args[0] === '--demo' || args[0] === '-d') {
+  const demoCount = parseInt(args[1]) || 10;
+  
+  if (isNaN(demoCount) || demoCount <= 0) {
+    console.error('❌ Error: Please provide a valid number of demo tags to generate');
+    console.error('Usage: node generate-nfc-tags-simple.js --demo <number_of_tags>');
+    console.error('Example: node generate-nfc-tags-simple.js --demo 20');
+    process.exit(1);
+  }
+  
+  console.log(`🏷️ Generating ${demoCount} demo NFC tags with "demo-" prefix...`);
+  
+  // Generate demo tags
+  for (let i = 1; i <= demoCount; i++) {
+    const uid = `demo-${i}`;
+    const validationCode = generateValidationCode(uid);
+    const s = `${uid}:${validationCode}`;
+    const nfcUrl = `${BASE_URL}/?s=${s}`;
+    
+    console.log(`Demo ${i}: ${nfcUrl}`);
+    console.log(`  UID: ${uid}`);
+    console.log(`  Validation Code: ${validationCode}`);
+    console.log(`  Policy: Demo (100 devices, 5 minutes)`);
+    console.log('');
+  }
+  
+  console.log(`✅ Generated ${demoCount} demo tags with "demo-" prefix`);
+  console.log('📋 Demo tags have: 100 device limit, 5-minute session duration');
+  process.exit(0);
+}
+
 // Check if user wants to generate a single URL for a specific UID
 if (args[0] === '--uid' || args[0] === '-u') {
   if (!args[1]) {
@@ -47,10 +79,19 @@ if (args[0] === '--uid' || args[0] === '-u') {
   const s = `${specificUid}:${validationCode}`;
   const nfcUrl = `${BASE_URL}/?s=${s}`;
   
+  // Determine tag type and policy
+  const isDemo = specificUid.startsWith('demo-');
+  const tagType = isDemo ? 'Demo' : 'Common';
+  const maxDevices = isDemo ? 100 : 3;
+  const sessionDuration = isDemo ? '5 minutes' : '120 hours (5 days)';
+  
   console.log('🏷️ Generated single NFC URL:');
   console.log(`UID ${specificUid}: ${nfcUrl}`);
   console.log(`Validation Code: ${validationCode}`);
   console.log(`S Parameter: ${s}`);
+  console.log(`Tag Type: ${tagType}`);
+  console.log(`Max Devices: ${maxDevices}`);
+  console.log(`Session Duration: ${sessionDuration}`);
   process.exit(0);
 }
 
@@ -60,10 +101,12 @@ if (isNaN(TOTAL_TAGS) || TOTAL_TAGS <= 0) {
   console.error('❌ Error: Please provide a valid number of tags to generate');
   console.error('Usage: node generate-nfc-tags-simple.js <number_of_tags>');
   console.error('Usage: node generate-nfc-tags-simple.js --uid <uid>');
+  console.error('Usage: node generate-nfc-tags-simple.js --demo <number_of_tags>');
   console.error('Examples:');
   console.error('  node generate-nfc-tags-simple.js 50');
   console.error('  node generate-nfc-tags-simple.js --uid 123');
   console.error('  node generate-nfc-tags-simple.js --uid "test-abc"');
+  console.error('  node generate-nfc-tags-simple.js --demo 20');
   process.exit(1);
 }
 
@@ -173,6 +216,10 @@ async function generateNFCTags() {
     saveLastGeneratedNumber(lastGeneratedNumber);
     
     // Write JSON output
+    // Determine tag types and policies
+    const commonTags = allTags.filter(tag => !tag.uid.startsWith('demo-'));
+    const demoTags = allTags.filter(tag => tag.uid.startsWith('demo-'));
+    
     const jsonOutput = {
       generatedAt: new Date().toISOString(),
       baseUrl: BASE_URL,
@@ -180,6 +227,22 @@ async function generateNFCTags() {
       uidRange: {
         start: START_NUMBER,
         end: START_NUMBER + TOTAL_TAGS - 1
+      },
+      policies: {
+        common: {
+          maxDevices: 3,
+          sessionDuration: '120 hours (5 days)',
+          description: 'Common NFC Tag (no prefix)'
+        },
+        demo: {
+          maxDevices: 100,
+          sessionDuration: '5 minutes',
+          description: 'Demo NFC Tag (demo- prefix)'
+        }
+      },
+      tagTypes: {
+        common: commonTags.length,
+        demo: demoTags.length
       },
       tags: allTags
     };
