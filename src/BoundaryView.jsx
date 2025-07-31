@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTargetArea } from './hooks/useTargetArea';
 import { ttsService } from './utils/ttsService';
+import { isPointInBounds, calculateDistance, formatDistance } from './utils/boundaryUtils';
 
 const BoundaryView = () => {
   const { 
@@ -29,9 +30,23 @@ const BoundaryView = () => {
   const [showTestControls] = useState(false);
   const [mockLat, setMockLat] = useState('');
   const [mockLng, setMockLng] = useState('');
+  const [isRecordingPolygon, setIsRecordingPolygon] = useState(false);
+  const [recordedPoints, setRecordedPoints] = useState([]);
+  const [polygonName, setPolygonName] = useState('');
+  const [generatedGeoJSON, setGeneratedGeoJSON] = useState('');
+  const [showGeoJSONOutput, setShowGeoJSONOutput] = useState(false);
+  
+  // Use ref to track recording state for event handlers
+  const isRecordingRef = useRef(false);
   const clickHandlerRef = useRef(null);
   const spotsRef = useRef({});
   const showSpotsRef = useRef(true);
+  
+  // Boundary fetching states
+  const [isFetchingBoundaries, setIsFetchingBoundaries] = useState(false);
+  const [fetchedBoundaries, setFetchedBoundaries] = useState({});
+  const [boundaryOverlays, setBoundaryOverlays] = useState([]);
+  const [showFetchedBoundaries, setShowFetchedBoundaries] = useState(false);
 
   const BAIDU_API_KEY = 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv';
 
@@ -93,32 +108,248 @@ const BoundaryView = () => {
 
   // Remove all fallback and bounds logic, only use center/radius for all area operations
 
-  // 1. Update isPointInBounds to only use center/radius
-  const isPointInBounds = (point, area) => {
-    const centerLat = area.center.lat;
-    const centerLng = area.center.lng;
-    const radius = area.radius;
-    const distance = calculateDistance(point.lat, point.lng, centerLat, centerLng);
-    return distance <= radius;
+  // Use imported functions from boundaryUtils.js
+
+  // Polygon recording functions
+  const startRecordingPolygon = () => {
+    setIsRecordingPolygon(true);
+    isRecordingRef.current = true;
+    setRecordedPoints([]);
+    setPolygonName('');
+    console.log('🎯 Started recording polygon coordinates');
   };
 
-  const calculateDistance = (lat1, lng1, lat2, lng2) => {
-    const R = 6371000; // Earth's radius in meters
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  const formatDistance = (meters) => {
-    if (meters < 1000) {
-      return `${Math.round(meters)}m`;
-    } else {
-      return `${(meters / 1000).toFixed(1)}km`;
+  const stopRecordingPolygon = () => {
+    setIsRecordingPolygon(false);
+    isRecordingRef.current = false;
+    console.log('⏹️ Stopped recording polygon coordinates');
+    
+    // Clear recorded point markers from map
+    if (map) {
+      const overlays = map.getOverlays();
+      overlays.forEach(overlay => {
+        if (overlay._isRecordedPoint) {
+          map.removeOverlay(overlay);
+        }
+      });
     }
+  };
+
+  const addPointToPolygon = (point) => {
+    if (!isRecordingRef.current) {
+      console.log('❌ Not recording polygon, ignoring click');
+      return;
+    }
+    
+    const newPoint = [point.lng, point.lat];
+    console.log(`📍 Recording point: [${point.lng}, ${point.lat}]`);
+    
+    setRecordedPoints(prev => {
+      const newPoints = [...prev, newPoint];
+      console.log(`✅ Updated points array: ${newPoints.length} points total`);
+      return newPoints;
+    });
+  };
+
+  const generatePolygonGeoJSON = () => {
+    if (recordedPoints.length < 3) {
+      alert('Need at least 3 points to create a polygon');
+      return;
+    }
+
+    // Close the polygon by adding the first point at the end
+    const closedCoordinates = [...recordedPoints, recordedPoints[0]];
+    
+    const geoJSON = {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [closedCoordinates]
+      }
+    };
+
+    const jsonString = JSON.stringify(geoJSON, null, 2);
+    setGeneratedGeoJSON(jsonString);
+    setShowGeoJSONOutput(true);
+    console.log('Generated GeoJSON:', jsonString);
+  };
+
+  const calculatePolygonCenter = (points) => {
+    if (points.length === 0) return null;
+    
+    const sumLng = points.reduce((sum, point) => sum + point[0], 0);
+    const sumLat = points.reduce((sum, point) => sum + point[1], 0);
+    
+    return {
+      lng: sumLng / points.length,
+      lat: sumLat / points.length
+    };
+  };
+
+  const clearRecordedPoints = () => {
+    setRecordedPoints([]);
+    setPolygonName('');
+    setGeneratedGeoJSON('');
+    setShowGeoJSONOutput(false);
+    
+    // Clear recorded point markers from map
+    if (map) {
+      const overlays = map.getOverlays();
+      overlays.forEach(overlay => {
+        if (overlay._isRecordedPoint) {
+          map.removeOverlay(overlay);
+        }
+      });
+    }
+  };
+
+  // Boundary fetching functions
+  const fetchBoundaryForArea = (areaName) => {
+    return new Promise((resolve, reject) => {
+      console.log('🔍 Checking Baidu Map API availability...');
+      console.log('window.BMap:', window.BMap);
+      console.log('window.BMap.LocalSearch:', window.BMap?.LocalSearch);
+      console.log('window.BMap.Boundary:', window.BMap?.Boundary);
+      console.log('🔄 Using multiple API approach for:', areaName);
+      
+      if (!window.BMap) {
+        console.error('❌ window.BMap is not available');
+        reject('Baidu Map API not loaded');
+        return;
+      }
+
+      // Try multiple approaches to get boundaries
+      const tryAllApproaches = async () => {
+        // Approach 1: Try LocalSearch for POI boundaries
+        console.log(`🌐 Approach 1: LocalSearch for POI: ${areaName}`);
+        
+
+        throw new Error('All approaches failed');
+      };
+
+      // Execute all approaches
+      tryAllApproaches().then(boundaryString => {
+        // Convert boundary string to GeoJSON
+        const coordinates = boundaryString.split(';').map(coord => {
+          const [lng, lat] = coord.split(',').map(Number);
+          return [lng, lat];
+        });
+        
+        const geoJSON = {
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [coordinates]
+          }
+        };
+        
+        console.log(`✅ Final boundary for ${areaName}:`, geoJSON);
+        resolve(geoJSON);
+      }).catch(error => {
+        console.log(`❌ All approaches failed for ${areaName}:`, error);
+        reject(`No boundary found for ${areaName}`);
+      });
+    });
+  };
+
+  const fetchAllBoundaries = async () => {
+    console.log('🚀 fetchAllBoundaries called!');
+    console.log('📊 Scenic areas count:', scenicAreas.length);
+    console.log('📊 Scenic areas:', scenicAreas.map(a => a.name));
+    
+    setIsFetchingBoundaries(true);
+    const newBoundaries = {};
+    const newOverlays = [];
+    
+    try {
+      console.log('🌐 Starting to fetch boundaries for all areas...');
+      
+      for (let i = 0; i < scenicAreas.length; i++) {
+        const area = scenicAreas[i];
+        try {
+          console.log(`🔍 Fetching boundary for: ${area.name} (${i + 1}/${scenicAreas.length})`);
+          const boundary = await fetchBoundaryForArea(area.name);
+          newBoundaries[area.name] = boundary;
+          
+          // Create and add overlay to map
+          console.log(`🎨 Creating polygon for ${area.name} with coordinates:`, boundary.geometry.coordinates[0]);
+          const coordinates = boundary.geometry.coordinates[0].map(coord => 
+            new window.BMap.Point(coord[0], coord[1])
+          );
+          console.log(`📍 Converted to BMap points:`, coordinates);
+          
+          const polygon = new window.BMap.Polygon(coordinates, {
+            strokeWeight: 3,
+            strokeColor: "#00ff00",
+            fillColor: "#00ff00",
+            fillOpacity: 0.1
+          });
+          
+          polygon._isFetchedBoundary = true;
+          polygon._areaName = area.name;
+          
+          console.log(`🗺️ Adding polygon to map for ${area.name}. Map available:`, !!map);
+          if (map) {
+            map.addOverlay(polygon);
+            console.log(`✅ Polygon added to map for ${area.name}`);
+          } else {
+            console.log(`❌ Map not available for ${area.name}`);
+          }
+          newOverlays.push(polygon);
+          
+          // Add delay between API calls to avoid rate limits
+          if (i < scenicAreas.length - 1) { // Don't delay after the last call
+            console.log(`⏳ Waiting 1 second before next API call...`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+          }
+          
+        } catch (error) {
+          console.log(`⚠️ Failed to fetch boundary for ${area.name}:`, error.message);
+        }
+      }
+      
+      setFetchedBoundaries(newBoundaries);
+      setBoundaryOverlays(newOverlays);
+      setShowFetchedBoundaries(true);
+      
+      console.log(`✅ Boundary fetching complete. Found ${Object.keys(newBoundaries).length} boundaries.`);
+      
+    } catch (error) {
+      console.error('❌ Error fetching boundaries:', error);
+    } finally {
+      setIsFetchingBoundaries(false);
+    }
+  };
+
+  const clearFetchedBoundaries = () => {
+    // Remove overlays from map
+    if (map) {
+      boundaryOverlays.forEach(overlay => {
+        map.removeOverlay(overlay);
+      });
+    }
+    
+    setBoundaryOverlays([]);
+    setFetchedBoundaries({});
+    setShowFetchedBoundaries(false);
+  };
+
+  const generateUpdatedScenicAreaJSON = () => {
+    const updatedAreas = scenicAreas.map(area => {
+      const fetchedBoundary = fetchedBoundaries[area.name];
+      if (fetchedBoundary) {
+        return {
+          ...area,
+          polygon: fetchedBoundary
+        };
+      }
+      return area;
+    });
+    
+    const updatedJSON = JSON.stringify(updatedAreas, null, 2);
+    setGeneratedGeoJSON(updatedJSON);
+    setShowGeoJSONOutput(true);
+    console.log('📋 Generated updated scenic-area.json with fetched boundaries');
   };
 
   // Calculate map bounds to fit all areas
@@ -129,11 +360,30 @@ const BoundaryView = () => {
     let minLng = Infinity, maxLng = -Infinity;
     
     scenicAreas.forEach(area => {
-      minLat = Math.min(minLat, area.center.lat);
-      maxLat = Math.max(maxLat, area.center.lat);
-      minLng = Math.min(minLng, area.center.lng);
-      maxLng = Math.max(maxLng, area.center.lng);
+      if (area.center && area.center.lat && area.center.lng) {
+        // Use center coordinates for circle areas
+        minLat = Math.min(minLat, area.center.lat);
+        maxLat = Math.max(maxLat, area.center.lat);
+        minLng = Math.min(minLng, area.center.lng);
+        maxLng = Math.max(maxLng, area.center.lng);
+      } else if (area.polygon && area.polygon.geometry && area.polygon.geometry.coordinates) {
+        // Use polygon coordinates for polygon areas
+        const coordinates = area.polygon.geometry.coordinates[0];
+        coordinates.forEach(coord => {
+          const [lng, lat] = coord;
+          minLat = Math.min(minLat, lat);
+          maxLat = Math.max(maxLat, lat);
+          minLng = Math.min(minLng, lng);
+          maxLng = Math.max(maxLng, lng);
+        });
+      }
     });
+    
+    // Check if we found any valid coordinates
+    if (minLat === Infinity || maxLat === -Infinity || minLng === Infinity || maxLng === -Infinity) {
+      console.warn('No valid coordinates found in scenic areas, using fallback bounds');
+      return null;
+    }
     
     // Add padding
     const latPadding = (maxLat - minLat) * 0.1;
@@ -154,6 +404,9 @@ const BoundaryView = () => {
       // Initialize map
       const baiduMap = new window.BMap.Map('baidu-map-boundary');
       
+      // Set the map state so other functions can access it
+      setMap(baiduMap);
+
       // Calculate map bounds from scenic areas
       const bounds = getMapBounds();
       if (bounds) {
@@ -187,63 +440,131 @@ const BoundaryView = () => {
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
           
           
-          // Draw each scenic area boundary as circles
+          // Draw each scenic area boundary (circles or polygons)
           scenicAreas.forEach((area) => {
-            const centerPoint = new window.BMap.Point(area.center.lng, area.center.lat);
-            const centerPixel = baiduMap.pointToPixel(centerPoint);
-            const radiusInMeters = area.radius;
-            // Convert radius from meters to pixels
-            const radiusPoint = new window.BMap.Point(
-              centerPoint.lng + (radiusInMeters / 111320 / Math.cos(centerPoint.lat * Math.PI / 180)),
-              centerPoint.lat + (radiusInMeters / 111320)
-            );
-            const radiusPixel = baiduMap.pointToPixel(radiusPoint);
-            const radiusInPixels = Math.sqrt(
-              Math.pow(centerPixel.x - radiusPixel.x, 2) + 
-              Math.pow(centerPixel.y - radiusPixel.y, 2)
-            );
-            // Draw circle boundary
-            ctx.beginPath();
-            ctx.arc(centerPixel.x, centerPixel.y, radiusInPixels, 0, 2 * Math.PI);
             const isSelected = selectedArea?.name === area.name;
-            ctx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.3)' : 'rgba(156, 163, 175, 0.2)';
-            ctx.fill();
-            ctx.strokeStyle = isSelected ? '#3b82f6' : '#6b7280';
-            ctx.lineWidth = isSelected ? 3 : 2;
-            ctx.stroke();
+            const fillColor = isSelected ? 'rgba(59, 130, 246, 0.3)' : 'rgba(156, 163, 175, 0.2)';
+            const strokeColor = isSelected ? '#3b82f6' : '#6b7280';
+            const lineWidth = isSelected ? 3 : 2;
 
-            // Draw center marker as a cross
-            const crossColor = isSelected ? '#2563eb' : '#6b7280';
-            const crossSize = 6; // half-length of cross arms (total 12px)
-            ctx.save();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 4;
-            // White outline (thicker)
-            ctx.beginPath();
-            ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
-            ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
-            ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
-            ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
-            ctx.stroke();
-            ctx.restore();
-            ctx.save();
-            ctx.strokeStyle = crossColor;
-            ctx.lineWidth = 2;
-            // Colored cross (thinner)
-            ctx.beginPath();
-            ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
-            ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
-            ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
-            ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
-            ctx.stroke();
-            ctx.restore();
+            if (area.polygon) {
+              // Draw polygon boundary
+              const coordinates = area.polygon.geometry.coordinates[0];
+              ctx.beginPath();
+              
+              coordinates.forEach((coord, index) => {
+                const point = new window.BMap.Point(coord[0], coord[1]);
+                const pixel = baiduMap.pointToPixel(point);
+                
+                if (index === 0) {
+                  ctx.moveTo(pixel.x, pixel.y);
+                } else {
+                  ctx.lineTo(pixel.x, pixel.y);
+                }
+              });
+              
+              ctx.closePath();
+              ctx.fillStyle = fillColor;
+              ctx.fill();
+              ctx.strokeStyle = strokeColor;
+              ctx.lineWidth = lineWidth;
+              ctx.stroke();
 
-            // Add area name label
-            ctx.fillStyle = isSelected ? '#3b82f6' : '#333';
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(area.name, centerPixel.x, centerPixel.y);
+              // Draw center marker for polygon areas
+              if (area.center) {
+                const centerPoint = new window.BMap.Point(area.center.lng, area.center.lat);
+                const centerPixel = baiduMap.pointToPixel(centerPoint);
+                const crossColor = isSelected ? '#2563eb' : '#6b7280';
+                const crossSize = 6;
+                
+                // White outline
+                ctx.save();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
+                ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
+                ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
+                ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
+                ctx.stroke();
+                ctx.restore();
+                
+                // Colored cross
+                ctx.save();
+                ctx.strokeStyle = crossColor;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
+                ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
+                ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
+                ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
+                ctx.stroke();
+                ctx.restore();
+
+                // Add area name label
+                ctx.fillStyle = isSelected ? '#3b82f6' : '#333';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(area.name, centerPixel.x, centerPixel.y);
+              }
+            } else if (area.center && area.radius) {
+              // Draw circle boundary
+              const centerPoint = new window.BMap.Point(area.center.lng, area.center.lat);
+              const centerPixel = baiduMap.pointToPixel(centerPoint);
+              const radiusInMeters = area.radius;
+              
+              // Convert radius from meters to pixels
+              const radiusPoint = new window.BMap.Point(
+                centerPoint.lng + (radiusInMeters / 111320 / Math.cos(centerPoint.lat * Math.PI / 180)),
+                centerPoint.lat + (radiusInMeters / 111320)
+              );
+              const radiusPixel = baiduMap.pointToPixel(radiusPoint);
+              const radiusInPixels = Math.sqrt(
+                Math.pow(centerPixel.x - radiusPixel.x, 2) + 
+                Math.pow(centerPixel.y - radiusPixel.y, 2)
+              );
+              
+              // Draw circle
+              ctx.beginPath();
+              ctx.arc(centerPixel.x, centerPixel.y, radiusInPixels, 0, 2 * Math.PI);
+              ctx.fillStyle = fillColor;
+              ctx.fill();
+              ctx.strokeStyle = strokeColor;
+              ctx.lineWidth = lineWidth;
+              ctx.stroke();
+
+              // Draw center marker as a cross
+              const crossColor = isSelected ? '#2563eb' : '#6b7280';
+              const crossSize = 6;
+              ctx.save();
+              ctx.strokeStyle = '#fff';
+              ctx.lineWidth = 4;
+              ctx.beginPath();
+              ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
+              ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
+              ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
+              ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
+              ctx.stroke();
+              ctx.restore();
+              ctx.save();
+              ctx.strokeStyle = crossColor;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(centerPixel.x - crossSize, centerPixel.y);
+              ctx.lineTo(centerPixel.x + crossSize, centerPixel.y);
+              ctx.moveTo(centerPixel.x, centerPixel.y - crossSize);
+              ctx.lineTo(centerPixel.x, centerPixel.y + crossSize);
+              ctx.stroke();
+              ctx.restore();
+
+              // Add area name label
+              ctx.fillStyle = isSelected ? '#3b82f6' : '#333';
+              ctx.font = '14px Arial';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(area.name, centerPixel.x, centerPixel.y);
+            }
           });
 
           // Draw spots if enabled
@@ -308,7 +629,24 @@ const BoundaryView = () => {
       // Add click event handling for area selection and location info
       const handleMapClick = (e) => {
         const clickPoint = e.point;
-        console.log('Map clicked at:', clickPoint);
+        console.log('🗺️ Map clicked at:', clickPoint);
+        console.log('🔍 Recording state:', isRecordingPolygon);
+        
+        // Handle polygon recording
+        if (isRecordingRef.current) {
+          console.log('🎯 Processing polygon recording click');
+          addPointToPolygon(clickPoint);
+          
+          // Add visual marker for recorded point
+          const pointMarker = new window.BMap.Marker(clickPoint, {
+            icon: new window.BMap.Icon('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNiIgY3k9IjYiIHI9IjYiIGZpbGw9IiNmNTczYzAiLz4KPC9zdmc+', new window.BMap.Size(12, 12))
+          });
+          pointMarker._isRecordedPoint = true;
+          baiduMap.addOverlay(pointMarker);
+          
+          console.log('✅ Polygon recording click handled, returning early');
+          return; // Don't do other click handling when recording
+        }
         
         // Set clicked location for display in right panel (ALWAYS do this first)
         const clickedLocationData = {
@@ -507,18 +845,35 @@ const BoundaryView = () => {
     }
   }, [userLocation, scenicAreas, isTestMode]);
 
-  // 3. Update getNearestArea to only use center
+  // Get nearest area using imported calculateDistance function
   const getNearestArea = () => {
     if (!userLocation) return null;
     let nearest = null;
     let minDistance = Infinity;
     scenicAreas.forEach(area => {
-      const centerLat = area.center.lat;
-      const centerLng = area.center.lng;
-      const distance = calculateDistance(userLocation.lat, userLocation.lng, centerLat, centerLng);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = { ...area, distance };
+      if (area.center && area.center.lat && area.center.lng) {
+        const distance = calculateDistance(
+          userLocation.lat, userLocation.lng,
+          area.center.lat, area.center.lng
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearest = { ...area, distance };
+        }
+      } else if (area.polygon && area.polygon.geometry && area.polygon.geometry.coordinates) {
+        // For polygon areas without center, use the first coordinate as reference
+        const coordinates = area.polygon.geometry.coordinates[0];
+        if (coordinates.length > 0) {
+          const [lng, lat] = coordinates[0];
+          const distance = calculateDistance(
+            userLocation.lat, userLocation.lng,
+            lat, lng
+          );
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearest = { ...area, distance };
+          }
+        }
       }
     });
     return nearest;
@@ -533,7 +888,7 @@ const BoundaryView = () => {
     const currentArea = scenicAreas.find(area => isPointInBounds(userLocation, area));
     
     if (currentArea) {
-      console.log('User is inside scenic area:', currentArea);
+      console.log('User is inside scenic area:', currentArea.name);
       setCurrentTargetArea(currentArea);
       return;
     }
@@ -671,6 +1026,20 @@ const BoundaryView = () => {
                   <div className="w-4 h-4 bg-gray-500 bg-opacity-20 border-2 border-gray-500 rounded-full mr-2"></div>
                   <span>Other Areas</span>
                 </div>
+                <div className="flex items-center mb-1">
+                  <div className="w-4 h-4 bg-green-500 bg-opacity-30 border-2 border-green-500 mr-2">⬟</div>
+                  <span>Polygon Boundary</span>
+                </div>
+                <div className="flex items-center mb-1">
+                  <div className="w-4 h-4 bg-purple-500 bg-opacity-30 border-2 border-purple-500 rounded-full mr-2"></div>
+                  <span>Circle Boundary</span>
+                </div>
+                {showFetchedBoundaries && (
+                  <div className="flex items-center mb-1">
+                    <div className="w-4 h-4 bg-green-500 bg-opacity-30 border-2 border-green-500 mr-2">⬟</div>
+                    <span>Fetched Boundary</span>
+                  </div>
+                )}
                 {showSpots && (
                   <div className="flex items-center mb-1">
                     <div className="w-4 h-4 bg-orange-500 mr-2">●</div>
@@ -682,6 +1051,7 @@ const BoundaryView = () => {
                   <span>Your Location</span>
                 </div>
               </div>
+
             </div>
           </div>
         </div>
@@ -689,6 +1059,87 @@ const BoundaryView = () => {
         {/* Right Side - Info Panel */}
         <div className="w-96 bg-white overflow-y-auto">
           <div className="p-4">
+            {/* Polygon Recording Controls */}
+            <div className="mb-6 bg-green-50 p-4 rounded-lg border border-green-200">
+              <h3 className="font-semibold text-green-800 mb-3">🎯 Polygon Recorder</h3>
+              
+              {!isRecordingPolygon ? (
+                <button
+                  onClick={startRecordingPolygon}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-semibold transition-colors w-full"
+                >
+                  Start Recording
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-sm text-green-700">
+                    Click points on map to record polygon
+                  </div>
+                  <div className="text-sm text-green-700 font-medium">
+                    Points: {recordedPoints.length}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={stopRecordingPolygon}
+                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm font-semibold transition-colors flex-1"
+                    >
+                      Stop
+                    </button>
+                    <button
+                      onClick={clearRecordedPoints}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-semibold transition-colors flex-1"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Boundary Fetching Controls */}
+            <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h3 className="font-semibold text-blue-800 mb-3">🌐 Boundary Fetcher</h3>
+              
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    console.log('🔘 Fetch All Boundaries button clicked!');
+                    fetchAllBoundaries();
+                  }}
+                  disabled={isFetchingBoundaries}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold transition-colors w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isFetchingBoundaries ? '🔄 Fetching...' : '🌐 Fetch All Boundaries'}
+                </button>
+                
+                {showFetchedBoundaries && (
+                  <div className="space-y-2">
+                    <div className="text-sm text-blue-700">
+                      Found: {Object.keys(fetchedBoundaries).length} boundaries
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={generateUpdatedScenicAreaJSON}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-semibold transition-colors flex-1"
+                      >
+                        📋 Generate JSON
+                      </button>
+                      <button
+                        onClick={clearFetchedBoundaries}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-semibold transition-colors flex-1"
+                      >
+                        🗑️ Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="text-xs text-blue-600">
+                  Fetches POI boundaries from Baidu Map LocalSearch API
+                </div>
+              </div>
+            </div>
+
             {/* Selected Area Details */}
             {selectedArea ? (
               <div className="mb-6">
@@ -698,8 +1149,16 @@ const BoundaryView = () => {
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-2">Boundary Information</h4>
                     <div className="bg-gray-50 p-3 rounded-lg text-sm font-mono">
-                      {selectedArea.center && selectedArea.radius ? (
+                      {selectedArea.polygon ? (
                         <>
+                          <div className="text-green-600 font-semibold mb-2">⬟ Polygon Boundary</div>
+                          <div>Center: {selectedArea.center?.lat.toFixed(6)}, {selectedArea.center?.lng.toFixed(6)}</div>
+                          <div>Type: Custom Polygon Shape</div>
+                          <div>Vertices: {selectedArea.polygon.geometry.coordinates[0].length} points</div>
+                        </>
+                      ) : selectedArea.center && selectedArea.radius ? (
+                        <>
+                          <div className="text-purple-600 font-semibold mb-2">● Circle Boundary</div>
                           <div>Center: {selectedArea.center.lat.toFixed(6)}, {selectedArea.center.lng.toFixed(6)}</div>
                           <div>Radius: {formatDistance(selectedArea.radius)}</div>
                         </>
@@ -884,6 +1343,112 @@ const BoundaryView = () => {
                   </div>
                 )}
                 
+                {/* Polygon Generation Panel */}
+                {recordedPoints.length > 0 && (
+                  <div className="mt-4 bg-green-50 p-4 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-800 mb-2">🎯 Recorded Polygon</h4>
+                    <div className="text-sm text-green-700 space-y-3">
+                      <div>
+                        <strong>Points recorded:</strong> {recordedPoints.length}
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={generatePolygonGeoJSON}
+                          disabled={recordedPoints.length < 3}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Generate GeoJSON
+                        </button>
+                        <button
+                          onClick={clearRecordedPoints}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                      
+                      {recordedPoints.length < 3 && (
+                        <div className="text-xs text-orange-600">
+                          Need at least 3 points to generate polygon
+                        </div>
+                      )}
+                      
+                      {recordedPoints.length >= 3 && !showGeoJSONOutput && (
+                        <div className="text-xs text-green-600">
+                          ✅ Ready to generate GeoJSON geometry
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Generated GeoJSON Output */}
+                {showGeoJSONOutput && generatedGeoJSON && (
+                  <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-blue-800 mb-2">📋 Generated GeoJSON Geometry</h4>
+                    <div className="text-sm text-blue-700 space-y-3">
+                      <div className="text-xs text-gray-600">
+                        Copy this geometry and paste it as the "polygon" field in your scenic-area.json:
+                      </div>
+                      
+                      <textarea
+                        value={generatedGeoJSON}
+                        readOnly
+                        className="w-full h-48 px-3 py-2 text-xs font-mono bg-white border border-blue-300 rounded focus:outline-none focus:border-blue-500 resize-none"
+                        onClick={(e) => e.target.select()}
+                      />
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(generatedGeoJSON);
+                            alert('GeoJSON copied to clipboard!');
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
+                        >
+                          Copy to Clipboard
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowGeoJSONOutput(false);
+                            setGeneratedGeoJSON('');
+                          }}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
+                        >
+                          Hide Output
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Debug Info */}
+                <div className="mt-4 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <h4 className="font-semibold text-yellow-800 mb-2">🔍 Debug Info</h4>
+                  <div className="text-xs text-yellow-700 space-y-2">
+                    <div>Recording: {isRecordingPolygon ? 'Yes' : 'No'}</div>
+                    <div>Points: {recordedPoints.length}</div>
+                    <div>Show Output: {showGeoJSONOutput ? 'Yes' : 'No'}</div>
+                    <div>Has GeoJSON: {generatedGeoJSON ? 'Yes' : 'No'}</div>
+                    <div>Fetching Boundaries: {isFetchingBoundaries ? 'Yes' : 'No'}</div>
+                    <div>Fetched Boundaries: {Object.keys(fetchedBoundaries).length}</div>
+                    <div>Show Fetched: {showFetchedBoundaries ? 'Yes' : 'No'}</div>
+                    {recordedPoints.length > 0 && (
+                      <div>
+                        <strong>Recorded Points:</strong>
+                        <div className="font-mono text-xs mt-1">
+                          {recordedPoints.map((point, index) => (
+                            <div key={index}>
+                              Point {index + 1}: [{point[0].toFixed(6)}, {point[1].toFixed(6)}]
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Current Target Area Info */}
                 {currentTargetArea && (
                   <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
@@ -893,7 +1458,7 @@ const BoundaryView = () => {
                         <strong>Spots:</strong> {spots[currentTargetArea.name]?.length || 0} locations
                       </div>
                       
-                      {userLocation && (
+                      {userLocation && currentTargetArea.center && (
                         <div>
                           <strong>Distance from you:</strong>
                           <div className="text-blue-600 font-medium">

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import { getDeviceFingerprint } from '../utils/deviceFingerprint';
-import { setScenicAreaFile } from '../utils/dataService';
+
 import sessionMonitor from '../utils/sessionMonitor';
 
 // Default session duration (will be overridden by API response)
@@ -101,8 +101,6 @@ const AccessGate = ({ children }) => {
       const existingSession = checkExistingSession();
       if (existingSession) {
         console.log('✅ Valid existing session found');
-        // Set scenic area file from session
-        setScenicAreaFile(existingSession.scenicAreaFile);
         setValidationState('valid');
         setShowApp(true);
         setLoading(false);
@@ -195,12 +193,8 @@ const AccessGate = ({ children }) => {
       
       console.log('✅ Background NFC validation and device access successful for UID:', nfcValidation.uid);
       
-      // Step 3: Set the scenic area file for this area
-      console.log('🏞️ Background Step 3: Setting scenic area file:', nfcValidation.scenicAreaFile);
-      setScenicAreaFile(nfcValidation.scenicAreaFile);
-      
-      // Step 4: Store session and redirect
-      console.log('💾 Background Step 4: Storing session...');
+      // Step 3: Store session and redirect
+      console.log('💾 Background Step 3: Storing session...');
       
       // Use session duration from API response, or fallback to default
       const sessionDuration = nfcValidation.sessionDuration || DEFAULT_SESSION_DURATION;
@@ -208,8 +202,6 @@ const AccessGate = ({ children }) => {
       
       const sessionData = {
         uid: nfcValidation.uid,
-        areaName: nfcValidation.areaName,
-        scenicAreaFile: nfcValidation.scenicAreaFile,
         deviceId,
         timestamp: Date.now(),
         expiresAt: Date.now() + sessionDuration,
@@ -230,8 +222,8 @@ const AccessGate = ({ children }) => {
         detail: sessionData 
       }));
       
-      // Step 6: Clean URL (remove NFC parameters)
-      console.log('🧹 Background Step 6: Cleaning URL...');
+      // Step 4: Clean URL (remove NFC parameters)
+      console.log('🧹 Background Step 4: Cleaning URL...');
       const newUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
       console.log('🧹 URL cleaned:', newUrl);
@@ -296,7 +288,6 @@ const AccessGate = ({ children }) => {
       }
       
       console.log('✅ Valid session found:', {
-        areaName: session.areaName,
         timeLeft: Math.round((session.expiresAt - now) / (1000 * 60 * 60))
       });
       

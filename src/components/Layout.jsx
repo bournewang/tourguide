@@ -139,7 +139,7 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
             </button>
 
             {/* Boundaries Button - Only show in debug mode AND development */}
-            {isDebugMode && import.meta.env.DEV && (
+            {import.meta.env.DEV && (
               <button
                 onClick={() => handleNavigate('/boundaries')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${

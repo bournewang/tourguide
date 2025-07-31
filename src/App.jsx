@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 import SpotList from './SpotList'
@@ -12,6 +12,11 @@ import { TargetAreaProvider } from './contexts/TargetAreaContext'
 // Conditionally import admin/debug components only in development
 const isDevelopment = import.meta.env.DEV;
 
+// Lazy load admin/debug components only in development
+const BoundaryView = isDevelopment ? lazy(() => import('./BoundaryView')) : null;
+const NarrationEditor = isDevelopment ? lazy(() => import('./NarrationEditor')) : null;
+const DirectionDebug = isDevelopment ? lazy(() => import('./DirectionDebug')) : null;
+
 // Import testing utilities only in development
 if (isDevelopment) {
   import('./utils/sessionTest');
@@ -19,6 +24,40 @@ if (isDevelopment) {
 
 // Main App Layout Component
 function AppLayout({ isAdmin }) {
+  // Create admin routes only in development
+  const getAdminRoutes = () => {
+    if (!isDevelopment || !BoundaryView || !NarrationEditor || !DirectionDebug) {
+      return [];
+    }
+    
+    return [
+      <Route key="boundaries" path="/boundaries" element={
+        <Suspense fallback={<div className="p-8 text-center">Loading admin tools...</div>}>
+          <Layout title="管理" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
+            <BoundaryView />
+          </Layout>
+        </Suspense>
+      } />,
+      <Route key="editor" path="/editor" element={
+        <Suspense fallback={<div className="p-8 text-center">Loading admin tools...</div>}>
+          {isAdmin ? (
+            <Layout title="编辑模式" showBack={false} showBottomNav={false}>
+              <NarrationEditor />
+            </Layout>
+          ) : (
+            <Navigate to="/" replace />
+          )}
+        </Suspense>
+      } />,
+      <Route key="debug" path="/debug" element={<Navigate to="/boundaries" replace />} />,
+      <Route key="direction-debug" path="/direction-debug" element={
+        <Suspense fallback={<div className="p-8 text-center">Loading admin tools...</div>}>
+          <DirectionDebug />
+        </Suspense>
+      } />
+    ];
+  };
+
   return (
     <div className="app">
       <Routes>
@@ -48,40 +87,7 @@ function AppLayout({ isAdmin }) {
         } />
         
         {/* Admin routes - only available in development */}
-        {isDevelopment && (
-          <>
-            <Route path="/boundaries" element={
-              <Layout title="管理" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
-                <div className="p-8 text-center">
-                  <h2 className="text-xl font-bold mb-4">BoundaryView - Development Only</h2>
-                  <p className="text-gray-600">This page is only available in development mode.</p>
-                </div>
-              </Layout>
-            } />
-            
-            <Route path="/editor" element={
-              isAdmin ? (
-                <Layout title="编辑模式" showBack={false} showBottomNav={false}>
-                  <div className="p-8 text-center">
-                    <h2 className="text-xl font-bold mb-4">NarrationEditor - Development Only</h2>
-                    <p className="text-gray-600">This page is only available in development mode.</p>
-                  </div>
-                </Layout>
-              ) : (
-                <Navigate to="/" replace />
-              )
-            } />
-            
-            <Route path="/debug" element={<Navigate to="/boundaries" replace />} />
-            
-            <Route path="/direction-debug" element={
-              <div className="p-8 text-center">
-                <h2 className="text-xl font-bold mb-4">DirectionDebug - Development Only</h2>
-                <p className="text-gray-600">This page is only available in development mode.</p>
-              </div>
-            } />
-          </>
-        )}
+        {getAdminRoutes()}
         
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -14,35 +14,13 @@ const DATA_PATH = '/assets/data';
 // Resource base URL for static assets
 const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_BASE_URL || '';
 
-// Default scenic area file
-let CURRENT_SCENIC_AREA_FILE = 'scenic-area.json'; // Current format
-
-// Static data paths (will be updated dynamically)
+// Static data paths (fixed for standalone city deployments)
 const getStaticPaths = () => ({
-  scenicAreas: `${RESOURCE_BASE_URL}${DATA_PATH}/${CURRENT_SCENIC_AREA_FILE}`
+  scenicAreas: `${RESOURCE_BASE_URL}${DATA_PATH}/scenic-area.json`
 });
 
 // Cache for scenic areas data to avoid repeated fetches
 let _scenicAreasCache = null;
-
-/**
- * Set the scenic area file to use (for area-level NFC validation)
- * @param {string} filename - The scenic area file name (e.g., 'scenic-area-kaifeng.json')
- */
-export const setScenicAreaFile = (filename) => {
-  console.log('🏞️ Setting scenic area file:', filename);
-  CURRENT_SCENIC_AREA_FILE = filename;
-  // Clear cache when switching files
-  _scenicAreasCache = null;
-  cacheService.clear();
-};
-
-/**
- * Get current scenic area file
- */
-export const getCurrentScenicAreaFile = () => {
-  return CURRENT_SCENIC_AREA_FILE;
-};
 
 // Determine data source based on environment
 export const getDataSource = () => {

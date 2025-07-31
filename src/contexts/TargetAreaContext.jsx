@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TargetAreaContext } from './TargetAreaContextDef';
 import { wgs84ToBaidu } from '../utils/coordinateUtils';
 import { dataService } from '../utils/dataService';
+import { isPointInBounds, getNearestArea, addPolygonBoundaries, calculateDistance } from '../utils/boundaryUtils';
 
 export const TargetAreaProvider = ({ children }) => {
   const [currentTargetArea, setCurrentTargetArea] = useState(null);
@@ -104,7 +105,12 @@ export const TargetAreaProvider = ({ children }) => {
         console.log('TargetAreaContext: Loading visible scenic areas using dataService...');
         const data = await dataService.getVisibleScenicAreas();
         console.log('TargetAreaContext: Loaded visible scenic areas:', data);
-        setScenicAreas(data);
+        
+        // Add polygon boundaries to areas that don't have them
+        const areasWithPolygons = addPolygonBoundaries(data);
+        console.log('TargetAreaContext: Added polygon boundaries to areas');
+        
+        setScenicAreas(areasWithPolygons);
       } catch (error) {
         console.error('TargetAreaContext: Failed to load scenic areas:', error);
       }
@@ -278,42 +284,8 @@ export const TargetAreaProvider = ({ children }) => {
     }
   }, [scenicAreas, currentTargetArea]);
 
-  const calculateDistance = (lat1, lng1, lat2, lng2) => {
-    const R = 6371000; // Earth's radius in meters
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  const isPointInBounds = (pointBaidu, area) => {
-    // Use center/radius only
-    const centerLat = area.center.lat;
-    const centerLng = area.center.lng;
-    const radius = area.radius;
-    const distance = calculateDistance(pointBaidu.lat, pointBaidu.lng, centerLat, centerLng);
-    console.log('isPointInBounds:', area.name, pointBaidu.lat, pointBaidu.lng, centerLat, centerLng, radius, distance);
-    return distance <= radius;
-  };
-
-  const getNearestArea = (userLocationBaidu) => {
-    if (!userLocationBaidu) return null;
-    let nearest = null;
-    let minDistance = Infinity;
-    scenicAreas.forEach(area => {
-      const centerLat = area.center.lat;
-      const centerLng = area.center.lng;
-      const distance = calculateDistance(userLocationBaidu.lat, userLocationBaidu.lng, centerLat, centerLng);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = { ...area, distance };
-      }
-    });
-    return nearest;
-  };
+  // Use imported boundary utilities instead of local functions
+  // calculateDistance, isPointInBounds, and getNearestArea are now imported from boundaryUtils
 
   const autoSelectTargetArea = () => {
     if (!userLocation || scenicAreas.length === 0) return;
@@ -327,7 +299,7 @@ export const TargetAreaProvider = ({ children }) => {
       return;
     }
     // If not inside any area, find the nearest one
-    const nearestArea = getNearestArea(userLocationBaidu);
+    const nearestArea = getNearestArea(userLocationBaidu, scenicAreas);
     if (nearestArea) {
       console.log('User is not in any area, selecting nearest:', nearestArea.name, 'distance:', nearestArea.distance);
       setCurrentTargetArea(nearestArea);
