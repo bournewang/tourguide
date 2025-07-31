@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTargetArea } from './hooks/useTargetArea';
 import { ttsService } from './utils/ttsService';
+import { dataService } from './utils/dataService';
 import { isPointInBounds, calculateDistance, formatDistance } from './utils/boundaryUtils';
+import { wgs84ToBaidu } from './utils/coordinateUtils';
 
 const BoundaryView = () => {
   const { 
@@ -16,14 +18,15 @@ const BoundaryView = () => {
   } = useTargetArea();
 
   const [scenicAreas, setScenicAreas] = useState([]);
-  const [selectedArea, setSelectedArea] = useState(null);
+  const [displayScenicAreas, setDisplayScenicAreas] = useState([]);
+  const [selectedArea] = useState(null);
   const [currentTargetArea, setCurrentTargetArea] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [map, setMap] = useState(null);
   const [spots, setSpots] = useState({});
-  const [showSpots, setShowSpots] = useState(true);
+  const [showSpots] = useState(true);
   const [allDataLoaded, setAllDataLoaded] = useState(false);
   const [clickedLocation, setClickedLocation] = useState(null);
   const [cacheStatus, setCacheStatus] = useState(null);
@@ -32,7 +35,7 @@ const BoundaryView = () => {
   const [mockLng, setMockLng] = useState('');
   const [isRecordingPolygon, setIsRecordingPolygon] = useState(false);
   const [recordedPoints, setRecordedPoints] = useState([]);
-  const [polygonName, setPolygonName] = useState('');
+  const [_polygonName, setPolygonName] = useState('');
   const [generatedGeoJSON, setGeneratedGeoJSON] = useState('');
   const [showGeoJSONOutput, setShowGeoJSONOutput] = useState(false);
   
@@ -41,12 +44,11 @@ const BoundaryView = () => {
   const clickHandlerRef = useRef(null);
   const spotsRef = useRef({});
   const showSpotsRef = useRef(true);
+  const canvasLayerRef = useRef(null);
   
   // Boundary fetching states
   const [isFetchingBoundaries, setIsFetchingBoundaries] = useState(false);
-  const [fetchedBoundaries, setFetchedBoundaries] = useState({});
-  const [boundaryOverlays, setBoundaryOverlays] = useState([]);
-  const [showFetchedBoundaries, setShowFetchedBoundaries] = useState(false);
+  const [selectedAreasForFetch, setSelectedAreasForFetch] = useState([]);
 
   const BAIDU_API_KEY = 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv';
 
@@ -54,6 +56,7 @@ const BoundaryView = () => {
     try {
       const data = await ttsService.getScenicAreas();
       setScenicAreas(data);
+      setDisplayScenicAreas(data); // Initialize display data with original data
       setLoading(false);
     } catch (error) {
       setError(`Failed to load scenic areas data: ${error.message}`);
@@ -174,7 +177,7 @@ const BoundaryView = () => {
     console.log('Generated GeoJSON:', jsonString);
   };
 
-  const calculatePolygonCenter = (points) => {
+  const _calculatePolygonCenter = (points) => {
     if (points.length === 0) return null;
     
     const sumLng = points.reduce((sum, point) => sum + point[0], 0);
@@ -204,115 +207,181 @@ const BoundaryView = () => {
   };
 
   // Boundary fetching functions
-  const fetchBoundaryForArea = (areaName) => {
-    return new Promise((resolve, reject) => {
-      console.log('🔍 Checking Baidu Map API availability...');
-      console.log('window.BMap:', window.BMap);
-      console.log('window.BMap.LocalSearch:', window.BMap?.LocalSearch);
-      console.log('window.BMap.Boundary:', window.BMap?.Boundary);
-      console.log('🔄 Using multiple API approach for:', areaName);
+  // Fetch a boundary for a given area name using OpenStreetMap's Nominatim API
+  const fetchBoundaryForArea = async (areaName) => {
+    try {
+      // Get city name from environment variable
+      const cityName = import.meta.env.VITE_CITY_NAME || '登封';
       
-      if (!window.BMap) {
-        console.error('❌ window.BMap is not available');
-        reject('Baidu Map API not loaded');
-        return;
+      // Create search query with city name to narrow down results
+      const searchQuery = `${cityName} ${areaName}`;
+      const query = encodeURIComponent(searchQuery);
+      const url =
+        `https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${query}`;
+
+      console.log(`🔍 Searching for boundary: "${searchQuery}"`);
+
+      const response = await fetch(url, {
+        headers: { 'Accept-Language': 'en' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
 
-      // Try multiple approaches to get boundaries
-      const tryAllApproaches = async () => {
-        // Approach 1: Try LocalSearch for POI boundaries
-        console.log(`🌐 Approach 1: LocalSearch for POI: ${areaName}`);
-        
+      const results = await response.json();
 
-        throw new Error('All approaches failed');
+      if (!results.length || !results[0].geojson) {
+        throw new Error('No boundary found');
+      }
+
+      // Convert coordinates from WGS84 to BD-09 for Baidu Maps
+      const originalGeometry = results[0].geojson;
+      const convertedGeometry = convertGeometryCoordinates(originalGeometry);
+
+      const geoJSON = {
+        type: 'Feature',
+        geometry: convertedGeometry
       };
 
-      // Execute all approaches
-      tryAllApproaches().then(boundaryString => {
-        // Convert boundary string to GeoJSON
-        const coordinates = boundaryString.split(';').map(coord => {
-          const [lng, lat] = coord.split(',').map(Number);
-          return [lng, lat];
-        });
-        
-        const geoJSON = {
-          type: "Feature",
-          geometry: {
-            type: "Polygon",
-            coordinates: [coordinates]
-          }
-        };
-        
-        console.log(`✅ Final boundary for ${areaName}:`, geoJSON);
-        resolve(geoJSON);
-      }).catch(error => {
-        console.log(`❌ All approaches failed for ${areaName}:`, error);
-        reject(`No boundary found for ${areaName}`);
-      });
+      console.log(`✅ Fetched OSM boundary for ${areaName} (${cityName})`);
+      return geoJSON;
+    } catch (err) {
+      console.log(`❌ Failed to fetch OSM boundary for ${areaName}:`, err);
+      throw err;
+    }
+  };
+
+  // Convert geometry coordinates from WGS84 to BD-09
+  const convertGeometryCoordinates = (geometry) => {
+    if (geometry.type === 'Polygon') {
+      return {
+        ...geometry,
+        coordinates: geometry.coordinates.map(ring =>
+          ring.map(coord => {
+            const [lng, lat] = coord;
+            const bd09 = wgs84ToBaidu(lat, lng);
+            return [bd09.lng, bd09.lat];
+          })
+        )
+      };
+    } else if (geometry.type === 'MultiPolygon') {
+      return {
+        ...geometry,
+        coordinates: geometry.coordinates.map(polygon =>
+          polygon.map(ring =>
+            ring.map(coord => {
+              const [lng, lat] = coord;
+              const bd09 = wgs84ToBaidu(lat, lng);
+              return [bd09.lng, bd09.lat];
+            })
+          )
+        )
+      };
+    }
+    return geometry;
+  };
+
+  // Check if an area already has a boundary (either original or fetched)
+  const hasBoundary = (area) => {
+    return area.polygon && area.polygon.geometry && area.polygon.geometry.coordinates;
+  };
+
+  // Handle area selection for boundary fetching
+  const toggleAreaSelection = (areaName) => {
+    setSelectedAreasForFetch(prev => {
+      if (prev.includes(areaName)) {
+        return prev.filter(name => name !== areaName);
+      } else {
+        return [...prev, areaName];
+      }
     });
   };
 
-  const fetchAllBoundaries = async () => {
-    console.log('🚀 fetchAllBoundaries called!');
-    console.log('📊 Scenic areas count:', scenicAreas.length);
-    console.log('📊 Scenic areas:', scenicAreas.map(a => a.name));
+  // Select all areas that don't have boundaries
+  const selectAreasWithoutBoundaries = () => {
+    const areasWithoutBoundaries = scenicAreas
+      .filter(area => !hasBoundary(area))
+      .map(area => area.name);
+    setSelectedAreasForFetch(areasWithoutBoundaries);
+  };
+
+  // Clear all selections
+  const clearAreaSelections = () => {
+    setSelectedAreasForFetch([]);
+  };
+
+  const fetchSelectedBoundaries = async () => {
+    if (selectedAreasForFetch.length === 0) {
+      alert('Please select at least one area to fetch boundaries for.');
+      return;
+    }
+
+    console.log('🚀 fetchSelectedBoundaries called!');
+    console.log('📊 Selected areas count:', selectedAreasForFetch.length);
+    console.log('📊 Selected areas:', selectedAreasForFetch);
     
     setIsFetchingBoundaries(true);
     const newBoundaries = {};
-    const newOverlays = [];
     
     try {
-      console.log('🌐 Starting to fetch boundaries for all areas...');
+      console.log('🌐 Starting to fetch boundaries for selected areas...');
       
-      for (let i = 0; i < scenicAreas.length; i++) {
-        const area = scenicAreas[i];
+      for (let i = 0; i < selectedAreasForFetch.length; i++) {
+        const areaName = selectedAreasForFetch[i];
         try {
-          console.log(`🔍 Fetching boundary for: ${area.name} (${i + 1}/${scenicAreas.length})`);
-          const boundary = await fetchBoundaryForArea(area.name);
-          newBoundaries[area.name] = boundary;
+          console.log(`🔍 Fetching boundary for: ${areaName} (${i + 1}/${selectedAreasForFetch.length})`);
+          const boundary = await fetchBoundaryForArea(areaName);
+          newBoundaries[areaName] = boundary;
           
-          // Create and add overlay to map
-          console.log(`🎨 Creating polygon for ${area.name} with coordinates:`, boundary.geometry.coordinates[0]);
-          const coordinates = boundary.geometry.coordinates[0].map(coord => 
-            new window.BMap.Point(coord[0], coord[1])
-          );
-          console.log(`📍 Converted to BMap points:`, coordinates);
-          
-          const polygon = new window.BMap.Polygon(coordinates, {
-            strokeWeight: 3,
-            strokeColor: "#00ff00",
-            fillColor: "#00ff00",
-            fillOpacity: 0.1
-          });
-          
-          polygon._isFetchedBoundary = true;
-          polygon._areaName = area.name;
-          
-          console.log(`🗺️ Adding polygon to map for ${area.name}. Map available:`, !!map);
-          if (map) {
-            map.addOverlay(polygon);
-            console.log(`✅ Polygon added to map for ${area.name}`);
-          } else {
-            console.log(`❌ Map not available for ${area.name}`);
-          }
-          newOverlays.push(polygon);
+          console.log(`🎨 Stored boundary data for ${areaName}`);
           
           // Add delay between API calls to avoid rate limits
-          if (i < scenicAreas.length - 1) { // Don't delay after the last call
+          if (i < selectedAreasForFetch.length - 1) { // Don't delay after the last call
             console.log(`⏳ Waiting 1 second before next API call...`);
             await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
           }
           
         } catch (error) {
-          console.log(`⚠️ Failed to fetch boundary for ${area.name}:`, error.message);
+          console.log(`⚠️ Failed to fetch boundary for ${areaName}:`, error.message);
         }
       }
       
-      setFetchedBoundaries(newBoundaries);
-      setBoundaryOverlays(newOverlays);
-      setShowFetchedBoundaries(true);
+      // Update scenic areas with fetched boundaries
+      const updatedScenicAreas = scenicAreas.map(area => {
+        const fetchedBoundary = newBoundaries[area.name];
+        if (fetchedBoundary) {
+          console.log(`🔄 Updating ${area.name} with fetched boundary:`, fetchedBoundary);
+          return {
+            ...area,
+            polygon: fetchedBoundary
+          };
+        }
+        return area;
+      });
       
       console.log(`✅ Boundary fetching complete. Found ${Object.keys(newBoundaries).length} boundaries.`);
+      console.log('🔄 Updating scenic areas with fetched boundaries...');
+      console.log('Original scenic areas:', scenicAreas);
+      console.log('Updated scenic areas:', updatedScenicAreas);
+      
+      // Update scenic areas using dataService
+      const success = dataService.updateScenicAreas(updatedScenicAreas);
+      
+      if (success) {
+        console.log('💾 Successfully updated scenic areas with fetched boundaries');
+        
+        // Show success message
+        // alert(`✅ Successfully fetched ${Object.keys(newBoundaries).length} boundaries!\n\nThe page will refresh to display the new boundaries.`);
+        
+        // Refresh the page to reload with new boundaries
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        console.error('Failed to update scenic areas');
+        alert('❌ Failed to save boundaries. Please try again.');
+      }
       
     } catch (error) {
       console.error('❌ Error fetching boundaries:', error);
@@ -321,45 +390,38 @@ const BoundaryView = () => {
     }
   };
 
+
+
   const clearFetchedBoundaries = () => {
-    // Remove overlays from map
-    if (map) {
-      boundaryOverlays.forEach(overlay => {
-        map.removeOverlay(overlay);
-      });
-    }
+    // Clear fetched scenic areas using dataService
+    const success = dataService.clearFetchedScenicAreas();
     
-    setBoundaryOverlays([]);
-    setFetchedBoundaries({});
-    setShowFetchedBoundaries(false);
+    if (success) {
+      console.log('🗑️ Successfully cleared fetched boundaries');
+      
+      // Show success message
+      alert('✅ Cleared fetched boundaries!\n\nThe page will refresh to restore original boundaries.');
+      
+      // Refresh the page to reload with original boundaries
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } else {
+      console.error('Failed to clear fetched boundaries');
+      alert('❌ Failed to clear boundaries. Please try again.');
+    }
   };
 
-  const generateUpdatedScenicAreaJSON = () => {
-    const updatedAreas = scenicAreas.map(area => {
-      const fetchedBoundary = fetchedBoundaries[area.name];
-      if (fetchedBoundary) {
-        return {
-          ...area,
-          polygon: fetchedBoundary
-        };
-      }
-      return area;
-    });
-    
-    const updatedJSON = JSON.stringify(updatedAreas, null, 2);
-    setGeneratedGeoJSON(updatedJSON);
-    setShowGeoJSONOutput(true);
-    console.log('📋 Generated updated scenic-area.json with fetched boundaries');
-  };
+
 
   // Calculate map bounds to fit all areas
   const getMapBounds = () => {
-    if (scenicAreas.length === 0) return null;
+    if (displayScenicAreas.length === 0) return null;
     
     let minLat = Infinity, maxLat = -Infinity;
     let minLng = Infinity, maxLng = -Infinity;
     
-    scenicAreas.forEach(area => {
+    displayScenicAreas.forEach(area => {
       if (area.center && area.center.lat && area.center.lng) {
         // Use center coordinates for circle areas
         minLat = Math.min(minLat, area.center.lat);
@@ -399,7 +461,7 @@ const BoundaryView = () => {
 
   // Initialize Baidu Map with scenic areas
   useEffect(() => {
-    if (mapLoaded && !map && scenicAreas.length > 0 && allDataLoaded) {
+    if (mapLoaded && !map && displayScenicAreas.length > 0 && allDataLoaded) {
       console.log('Initializing map with all data loaded');
       // Initialize map
       const baiduMap = new window.BMap.Map('baidu-map-boundary');
@@ -407,7 +469,7 @@ const BoundaryView = () => {
       // Set the map state so other functions can access it
       setMap(baiduMap);
 
-      // Calculate map bounds from scenic areas
+      // Calculate map bounds from display scenic areas
       const bounds = getMapBounds();
       if (bounds) {
         const swPoint = new window.BMap.Point(bounds.minLng, bounds.minLat);
@@ -439,16 +501,18 @@ const BoundaryView = () => {
           
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
           
+          console.log('Canvas update - drawing boundaries for', displayScenicAreas.length, 'areas');
+          console.log('Display scenic areas data:', displayScenicAreas);
           
           // Draw each scenic area boundary (circles or polygons)
-          scenicAreas.forEach((area) => {
+          displayScenicAreas.forEach((area) => {
             const isSelected = selectedArea?.name === area.name;
             const fillColor = isSelected ? 'rgba(59, 130, 246, 0.3)' : 'rgba(156, 163, 175, 0.2)';
             const strokeColor = isSelected ? '#3b82f6' : '#6b7280';
             const lineWidth = isSelected ? 3 : 2;
 
             if (area.polygon) {
-              // Draw polygon boundary
+              // Draw original polygon boundary
               const coordinates = area.polygon.geometry.coordinates[0];
               ctx.beginPath();
               
@@ -573,7 +637,7 @@ const BoundaryView = () => {
             let totalSpotsProcessed = 0;
             let totalSpotsDrawn = 0;
             
-            Object.entries(spotsRef.current).forEach(([areaName, areaSpots]) => {
+            Object.entries(spotsRef.current).forEach(([, areaSpots]) => {
             //   console.log(`Processing ${areaSpots.length} spots for area: ${areaName}`);
               areaSpots.forEach((spot) => {
                 totalSpotsProcessed++;
@@ -601,7 +665,7 @@ const BoundaryView = () => {
                     
                     // Draw spot name if zoomed in enough
                     const zoom = baiduMap.getZoom();
-                    if (zoom >= 12) {
+                    if (zoom >= 16) {
                       ctx.fillStyle = '#333';
                       ctx.font = '10px Arial';
                       ctx.textAlign = 'center';
@@ -625,6 +689,7 @@ const BoundaryView = () => {
       });
       
       baiduMap.addOverlay(canvasLayer);
+      canvasLayerRef.current = canvasLayer;
       
       // Add click event handling for area selection and location info
       const handleMapClick = (e) => {
@@ -695,7 +760,7 @@ const BoundaryView = () => {
         
         // Show location info if user location is available
         if (userLocation) {
-          const distance = calculateDistance(
+          const _distance = calculateDistance(
             userLocation.lat, userLocation.lng,
             clickPoint.lat, clickPoint.lng
           );
@@ -734,7 +799,7 @@ const BoundaryView = () => {
       
       setMap(baiduMap);
     }
-  }, [mapLoaded, map, scenicAreas, selectedArea, allDataLoaded]);
+  }, [mapLoaded, map, displayScenicAreas, selectedArea, allDataLoaded]);
 
   // Handle user location updates separately
   useEffect(() => {
@@ -829,6 +894,18 @@ const BoundaryView = () => {
     console.log('showSpots state changed:', showSpots);
     showSpotsRef.current = showSpots; // Update ref with current showSpots state
   }, [showSpots]);
+
+  // Debug scenic areas state changes
+  useEffect(() => {
+    console.log('Scenic areas state changed:', scenicAreas);
+  }, [scenicAreas]);
+
+  // Debug display scenic areas state changes
+  useEffect(() => {
+    console.log('Display scenic areas state changed:', displayScenicAreas);
+  }, [displayScenicAreas]);
+
+
 
 
 
@@ -1028,18 +1105,13 @@ const BoundaryView = () => {
                 </div>
                 <div className="flex items-center mb-1">
                   <div className="w-4 h-4 bg-green-500 bg-opacity-30 border-2 border-green-500 mr-2">⬟</div>
-                  <span>Polygon Boundary</span>
+                  <span>Original Polygon Boundary</span>
                 </div>
                 <div className="flex items-center mb-1">
                   <div className="w-4 h-4 bg-purple-500 bg-opacity-30 border-2 border-purple-500 rounded-full mr-2"></div>
                   <span>Circle Boundary</span>
                 </div>
-                {showFetchedBoundaries && (
-                  <div className="flex items-center mb-1">
-                    <div className="w-4 h-4 bg-green-500 bg-opacity-30 border-2 border-green-500 mr-2">⬟</div>
-                    <span>Fetched Boundary</span>
-                  </div>
-                )}
+
                 {showSpots && (
                   <div className="flex items-center mb-1">
                     <div className="w-4 h-4 bg-orange-500 mr-2">●</div>
@@ -1100,42 +1172,77 @@ const BoundaryView = () => {
             <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
               <h3 className="font-semibold text-blue-800 mb-3">🌐 Boundary Fetcher</h3>
               
+              {/* Area Selection */}
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-sm font-medium text-blue-700">Select Areas to Fetch Boundaries:</h4>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={selectAreasWithoutBoundaries}
+                      className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors"
+                    >
+                      Select Missing
+                    </button>
+                    <button
+                      onClick={clearAreaSelections}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {scenicAreas.map((area) => (
+                    <label key={area.name} className="flex items-center text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedAreasForFetch.includes(area.name)}
+                        onChange={() => toggleAreaSelection(area.name)}
+                        disabled={isFetchingBoundaries}
+                        className="mr-2"
+                      />
+                      <span className={`flex-1 ${hasBoundary(area) ? 'text-gray-500 line-through' : 'text-blue-700'}`}>
+                        {area.name}
+                        {hasBoundary(area) && <span className="text-xs text-green-600 ml-1">(has boundary)</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                
+                <div className="text-xs text-gray-600 mt-1">
+                  {selectedAreasForFetch.length} of {scenicAreas.length} areas selected
+                </div>
+              </div>
+              
               <div className="space-y-3">
                 <button
                   onClick={() => {
-                    console.log('🔘 Fetch All Boundaries button clicked!');
-                    fetchAllBoundaries();
+                    console.log('🔘 Fetch Selected Boundaries button clicked!');
+                    fetchSelectedBoundaries();
                   }}
-                  disabled={isFetchingBoundaries}
+                  disabled={isFetchingBoundaries || selectedAreasForFetch.length === 0}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold transition-colors w-full disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isFetchingBoundaries ? '🔄 Fetching...' : '🌐 Fetch All Boundaries'}
+                  {isFetchingBoundaries ? '🔄 Fetching...' : `🌐 Fetch Selected Boundaries (${selectedAreasForFetch.length})`}
                 </button>
                 
-                {showFetchedBoundaries && (
-                  <div className="space-y-2">
-                    <div className="text-sm text-blue-700">
-                      Found: {Object.keys(fetchedBoundaries).length} boundaries
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={generateUpdatedScenicAreaJSON}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-semibold transition-colors flex-1"
-                      >
-                        📋 Generate JSON
-                      </button>
-                      <button
-                        onClick={clearFetchedBoundaries}
-                        className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-semibold transition-colors flex-1"
-                      >
-                        🗑️ Clear
-                      </button>
-                    </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-blue-700">
+                    Boundaries will be saved to cache and page will refresh
                   </div>
-                )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={clearFetchedBoundaries}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-semibold transition-colors flex-1"
+                    >
+                      🗑️ Clear Boundaries
+                    </button>
+                  </div>
+                </div>
                 
                 <div className="text-xs text-blue-600">
-                  Fetches POI boundaries from Baidu Map LocalSearch API
+                  Boundaries are retrieved from the OpenStreetMap Nominatim API
                 </div>
               </div>
             </div>
@@ -1432,8 +1539,6 @@ const BoundaryView = () => {
                     <div>Show Output: {showGeoJSONOutput ? 'Yes' : 'No'}</div>
                     <div>Has GeoJSON: {generatedGeoJSON ? 'Yes' : 'No'}</div>
                     <div>Fetching Boundaries: {isFetchingBoundaries ? 'Yes' : 'No'}</div>
-                    <div>Fetched Boundaries: {Object.keys(fetchedBoundaries).length}</div>
-                    <div>Show Fetched: {showFetchedBoundaries ? 'Yes' : 'No'}</div>
                     {recordedPoints.length > 0 && (
                       <div>
                         <strong>Recorded Points:</strong>

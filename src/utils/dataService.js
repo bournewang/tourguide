@@ -51,6 +51,15 @@ export const dataService = {
     const dataSource = getDataSource();
     const cacheKey = 'scenic_areas';
     
+    // Try cache first (for fetched boundaries)
+    const fetchedBoundariesData = cacheService.get('scenic_areas_fetched');
+    if (fetchedBoundariesData) {
+      console.log('📋 Using scenic areas from cache (fetched boundaries):', fetchedBoundariesData.length, 'areas');
+      // Update in-memory cache as well
+      _scenicAreasCache = fetchedBoundariesData;
+      return fetchedBoundariesData;
+    }
+    
     // Try cache first
     const cachedData = cacheService.get(cacheKey);
     if (cachedData) {
@@ -319,5 +328,30 @@ export const dataService = {
       }
     // }
     return thumbPath;
+  },
+
+  // Update scenic areas data (for fetched boundaries)
+  updateScenicAreas(updatedAreas) {
+    const success = cacheService.set('scenic_areas_fetched', updatedAreas);
+    if (success) {
+      console.log('💾 Updated scenic areas in cache:', updatedAreas.length, 'areas');
+      
+      // Also update in-memory cache
+      _scenicAreasCache = updatedAreas;
+    } else {
+      console.error('Failed to update scenic areas in cache');
+    }
+    return success;
+  },
+
+  // Clear fetched scenic areas (restore original)
+  clearFetchedScenicAreas() {
+    cacheService.clear('scenic_areas_fetched');
+    console.log('🗑️ Cleared fetched scenic areas from cache');
+    
+    // Clear in-memory cache to force reload from original source
+    _scenicAreasCache = null;
+    
+    return true;
   }
 };

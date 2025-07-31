@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
 import { ttsService } from './utils/ttsService';
+import { isPointInBounds } from './utils/boundaryUtils';
 
 const MapView = () => {
   const navigate = useNavigate();
@@ -183,6 +184,36 @@ const MapView = () => {
             // Get current user location from the ref
             const currentUserLocation = userLocationRef.current;
             
+            // Draw area boundary if available
+            if (currentTargetArea && currentTargetArea.polygon && currentTargetArea.polygon.geometry) {
+              try {
+                const coordinates = currentTargetArea.polygon.geometry.coordinates[0];
+                ctx.beginPath();
+                
+                coordinates.forEach((coord, index) => {
+                  const point = new window.BMap.Point(coord[0], coord[1]);
+                  const pixel = baiduMap.pointToPixel(point);
+                  
+                  if (index === 0) {
+                    ctx.moveTo(pixel.x, pixel.y);
+                  } else {
+                    ctx.lineTo(pixel.x, pixel.y);
+                  }
+                });
+                
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'; // Light blue fill
+                ctx.fill();
+                ctx.strokeStyle = '#3b82f6'; // Blue stroke
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                console.log('🎨 Drew area boundary for:', currentTargetArea.name);
+              } catch (error) {
+                console.error('Error drawing area boundary:', error);
+              }
+            }
+
             // Draw user location marker
             if (currentUserLocation && currentUserLocation.lat && currentUserLocation.lng) {
               try {
@@ -190,10 +221,13 @@ const MapView = () => {
                 const userPixel = baiduMap.pointToPixel(userPoint);
                 
                 if (userPixel && userPixel.x !== undefined && userPixel.y !== undefined) {
-                  // Draw user location marker (blue circle)
+                  // Check if user is inside the area boundary
+                  const isInside = currentTargetArea && isPointInBounds(currentUserLocation, currentTargetArea);
+                  
+                  // Draw user location marker (green if inside, blue if outside)
                   ctx.beginPath();
                   ctx.arc(userPixel.x, userPixel.y, 8, 0, 2 * Math.PI);
-                  ctx.fillStyle = '#3b82f6';
+                  ctx.fillStyle = isInside ? '#22c55e' : '#3b82f6'; // Green if inside, blue if outside
                   ctx.fill();
                   ctx.strokeStyle = '#ffffff';
                   ctx.lineWidth = 3;
@@ -206,28 +240,31 @@ const MapView = () => {
                   ctx.lineWidth = 2;
                   ctx.stroke();
                   
-                  // Draw user location label
-                  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                  ctx.font = '12px Arial';
-                  ctx.textAlign = 'center';
-                  ctx.textBaseline = 'bottom';
-                  
-                  const text = '我的位置';
-                  const textMetrics = ctx.measureText(text);
-                  const textWidth = textMetrics.width;
-                  const textHeight = 16;
-                  const padding = 4;
-                  
-                  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                  ctx.fillRect(
-                    userPixel.x - textWidth/2 - padding,
-                    userPixel.y - 25 - textHeight - padding,
-                    textWidth + padding * 2,
-                    textHeight + padding * 2
-                  );
-                  
-                  ctx.fillStyle = '#ffffff';
-                  ctx.fillText(text, userPixel.x, userPixel.y - 25);
+                  // Draw user location label only at high zoom levels (>= 18)
+                  const currentZoom = baiduMap.getZoom();
+                  if (currentZoom >= 18) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    
+                    const text = '我的位置';
+                    const textMetrics = ctx.measureText(text);
+                    const textWidth = textMetrics.width;
+                    const textHeight = 16;
+                    const padding = 4;
+                    
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(
+                      userPixel.x - textWidth/2 - padding,
+                      userPixel.y - 25 - textHeight - padding,
+                      textWidth + padding * 2,
+                      textHeight + padding * 2
+                    );
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(text, userPixel.x, userPixel.y - 25);
+                  }
                   
                   console.log('📍 Drew user location at:', userPixel.x, userPixel.y);
                 }
@@ -260,32 +297,35 @@ const MapView = () => {
                     ctx.lineWidth = 1;
                     ctx.stroke();
                     
-                    // Draw spot name
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                    ctx.font = '12px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'bottom';
-                    
-                    const text = spot.name;
-                    const textMetrics = ctx.measureText(text);
-                    const textWidth = textMetrics.width;
-                    const textHeight = 16;
-                    const padding = 4;
-                    
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                    ctx.fillRect(
-                      spotPixel.x - textWidth/2 - padding,
-                      spotPixel.y - 15 - textHeight - padding,
-                      textWidth + padding * 2,
-                      textHeight + padding * 2
-                    );
-                    
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillText(text, spotPixel.x, spotPixel.y - 15);
+                    // Draw spot name only at high zoom levels (>= 18)
+                    const currentZoom = baiduMap.getZoom();
+                    if (currentZoom >= 18) {
+                      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                      ctx.font = '12px Arial';
+                      ctx.textAlign = 'center';
+                      ctx.textBaseline = 'bottom';
+                      
+                      const text = spot.name;
+                      const textMetrics = ctx.measureText(text);
+                      const textWidth = textMetrics.width;
+                      const textHeight = 16;
+                      const padding = 4;
+                      
+                      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                      ctx.fillRect(
+                        spotPixel.x - textWidth/2 - padding,
+                        spotPixel.y - 15 - textHeight - padding,
+                        textWidth + padding * 2,
+                        textHeight + padding * 2
+                      );
+                      
+                      ctx.fillStyle = '#ffffff';
+                      ctx.fillText(text, spotPixel.x, spotPixel.y - 15);
+                    }
                     
                     // Debug first few spots
                     if (index < 3) {
-                      console.log(`✅ Drew spot ${index}: ${spot.name} at (${spotPixel.x}, ${spotPixel.y})`);
+                      console.log(`✅ Drew spot ${index}: ${spot.name} at (${spotPixel.x}, ${spotPixel.y}) - zoom: ${currentZoom}, labels: ${currentZoom >= 18 ? 'shown' : 'hidden'}`);
                     }
                   }
                 }
@@ -552,6 +592,26 @@ const MapView = () => {
           <><br /><span>移动端优化</span></>
         </div>
       </div> */}
+
+      {/* Boundary Status Indicator */}
+      {currentTargetArea && currentTargetArea.polygon && userLocation && (
+        <div className="absolute top-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-40">
+          <div className="text-center">
+            <div className="w-8 h-8 mx-auto mb-1 flex items-center justify-center">
+              <div 
+                className={`w-4 h-4 rounded-full ${
+                  isPointInBounds(userLocation, currentTargetArea) 
+                    ? 'bg-green-500' 
+                    : 'bg-blue-500'
+                }`}
+              ></div>
+            </div>
+            <span className="text-xs text-gray-600">
+              {isPointInBounds(userLocation, currentTargetArea) ? '在景区内' : '在景区外'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* User Heading Indicator */}
       {orientationAvailable && userLocation && (
