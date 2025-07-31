@@ -49,6 +49,7 @@ const BoundaryView = () => {
   // Boundary fetching states
   const [isFetchingBoundaries, setIsFetchingBoundaries] = useState(false);
   const [selectedAreasForFetch, setSelectedAreasForFetch] = useState([]);
+  const [hasFetchedBoundaries, setHasFetchedBoundaries] = useState(false);
 
   const BAIDU_API_KEY = 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv';
 
@@ -57,6 +58,11 @@ const BoundaryView = () => {
       const data = await ttsService.getScenicAreas();
       setScenicAreas(data);
       setDisplayScenicAreas(data); // Initialize display data with original data
+      
+      // Check if any areas have fetched polygon boundaries
+      const hasPolygons = data.some(area => area.polygon && area.polygon.geometry);
+      setHasFetchedBoundaries(hasPolygons);
+      
       setLoading(false);
     } catch (error) {
       setError(`Failed to load scenic areas data: ${error.message}`);
@@ -347,8 +353,11 @@ const BoundaryView = () => {
         }
       }
       
+      // Get the original scenic areas data to preserve all fields
+      const originalScenicAreas = await dataService.getScenicAreas();
+      
       // Update scenic areas with fetched boundaries
-      const updatedScenicAreas = scenicAreas.map(area => {
+      const updatedScenicAreas = originalScenicAreas.map(area => {
         const fetchedBoundary = newBoundaries[area.name];
         if (fetchedBoundary) {
           console.log(`🔄 Updating ${area.name} with fetched boundary:`, fetchedBoundary);
@@ -402,6 +411,9 @@ const BoundaryView = () => {
       // Show success message
       alert('✅ Cleared fetched boundaries!\n\nThe page will refresh to restore original boundaries.');
       
+      // Reset the fetched boundaries state
+      setHasFetchedBoundaries(false);
+      
       // Refresh the page to reload with original boundaries
       setTimeout(() => {
         window.location.reload();
@@ -409,6 +421,40 @@ const BoundaryView = () => {
     } else {
       console.error('Failed to clear fetched boundaries');
       alert('❌ Failed to clear boundaries. Please try again.');
+    }
+  };
+
+  const copyUpdatedScenicAreaData = async () => {
+    try {
+      console.log('📋 Copying updated scenic area data...');
+      
+      // Get the current scenic areas data (with fetched boundaries)
+      const currentData = await dataService.getScenicAreas();
+      
+      // Create a clean copy for export - preserve all original fields
+      const exportData = currentData.map(area => ({
+        ...area, // Include all original fields
+        polygon: area.polygon // Ensure polygon data is included
+      }));
+      
+      // Convert to JSON string with proper formatting
+      const jsonData = JSON.stringify(exportData, null, 2);
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(jsonData);
+      
+      console.log('✅ Scenic area data copied to clipboard!');
+      
+      // Show success message
+      alert('✅ Scenic area data with fetched boundaries copied to clipboard!');
+      
+      // Update the fetched boundaries state
+      const hasPolygons = currentData.some(area => area.polygon && area.polygon.geometry);
+      setHasFetchedBoundaries(hasPolygons);
+      
+    } catch (error) {
+      console.error('❌ Failed to copy scenic area data:', error);
+      alert('❌ Failed to copy data: ' + error.message);
     }
   };
 
@@ -1231,7 +1277,18 @@ const BoundaryView = () => {
                   <div className="text-sm text-blue-700">
                     Boundaries will be saved to cache and page will refresh
                   </div>
+                  <div className="text-sm text-green-700">
+                    Copy button exports scenic area data with fetched polygon boundaries
+                  </div>
                   <div className="flex gap-2">
+                    {hasFetchedBoundaries && (
+                      <button
+                        onClick={copyUpdatedScenicAreaData}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-semibold transition-colors flex-1"
+                      >
+                        📋 Copy Data
+                      </button>
+                    )}
                     <button
                       onClick={clearFetchedBoundaries}
                       className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-semibold transition-colors flex-1"
