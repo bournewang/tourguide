@@ -9,6 +9,7 @@ const MapView3D = () => {
   const BAIDU_API_KEY = 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv';
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
+  const orientationCleanupRef = useRef(null);
   const [userHeading, setUserHeading] = useState(0);
   const [orientationAvailable, setOrientationAvailable] = useState(false);
 
@@ -97,17 +98,39 @@ const MapView3D = () => {
   }, [currentTargetArea, navigate]);
 
   // handle device orientation
-  useEffect(() => {
+  const setupOrientation = async () => {
     if (window.DeviceOrientationEvent) {
-      const handleOrientation = (event) => {
-        if (event.alpha !== null) {
-          setUserHeading(event.alpha);
-          setOrientationAvailable(true);
+      let granted = true;
+      if (typeof window.DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const result = await window.DeviceOrientationEvent.requestPermission();
+          granted = result === 'granted';
+        } catch (err) {
+          granted = false;
+          console.error('Device orientation permission denied', err);
         }
-      };
-      window.addEventListener('deviceorientation', handleOrientation);
-      return () => window.removeEventListener('deviceorientation', handleOrientation);
+      }
+      if (granted) {
+        if (orientationCleanupRef.current) orientationCleanupRef.current();
+        const handleOrientation = (event) => {
+          if (event.alpha !== null) {
+            setUserHeading(event.alpha);
+            setOrientationAvailable(true);
+          }
+        };
+        window.addEventListener('deviceorientation', handleOrientation);
+        orientationCleanupRef.current = () =>
+          window.removeEventListener('deviceorientation', handleOrientation);
+      }
     }
+  };
+
+  useEffect(() => {
+    setupOrientation();
+    return () => {
+      if (orientationCleanupRef.current) orientationCleanupRef.current();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // update user location marker
@@ -135,10 +158,13 @@ const MapView3D = () => {
     }
   }, [userLocation, userHeading, orientationAvailable]);
 
-  const handleGoToUserLocation = () => {
+  const handleGoToUserLocation = async () => {
     if (mapRef.current && userLocation) {
       const point = new window.BMapGL.Point(userLocation.lng, userLocation.lat);
       mapRef.current.centerAndZoom(point, 18);
+    }
+    if (!orientationAvailable) {
+      await setupOrientation();
     }
   };
 

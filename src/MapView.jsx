@@ -14,6 +14,7 @@ const MapView = () => {
   const [spots, setSpots] = useState([]);
   const [userHeading, setUserHeading] = useState(0);
   const [orientationAvailable, setOrientationAvailable] = useState(false);
+  const orientationCleanupRef = useRef(null);
   const hasAutoCentered = useRef(false);
   const spotsRef = useRef([]);
   const canvasLayerRef = useRef(null);
@@ -50,7 +51,34 @@ const MapView = () => {
     }
   };
 
-  const handleGoToUserLocation = () => {
+  const setupOrientation = async () => {
+    if (window.DeviceOrientationEvent) {
+      let granted = true;
+      if (typeof window.DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const result = await window.DeviceOrientationEvent.requestPermission();
+          granted = result === 'granted';
+        } catch (err) {
+          granted = false;
+          console.error('Device orientation permission denied', err);
+        }
+      }
+      if (granted) {
+        if (orientationCleanupRef.current) orientationCleanupRef.current();
+        const handleOrientation = (event) => {
+          if (event.alpha !== null) {
+            setUserHeading(event.alpha);
+            setOrientationAvailable(true);
+          }
+        };
+        window.addEventListener('deviceorientation', handleOrientation);
+        orientationCleanupRef.current = () =>
+          window.removeEventListener('deviceorientation', handleOrientation);
+      }
+    }
+  };
+
+  const handleGoToUserLocation = async () => {
     console.log('📍 handleGoToUserLocation called');
     console.log('📍 map available:', !!map);
     console.log('📍 userLocation available:', !!userLocation);
@@ -73,6 +101,9 @@ const MapView = () => {
       console.log('✅ Map centered on user location');
     } catch (error) {
       console.error('❌ Error centering map on user location:', error);
+    }
+    if (!orientationAvailable) {
+      await setupOrientation();
     }
   };
 
@@ -459,17 +490,11 @@ const MapView = () => {
 
   // Handle device orientation
   useEffect(() => {
-    if (window.DeviceOrientationEvent) {
-      const handleOrientation = (event) => {
-        if (event.alpha !== null) {
-          setUserHeading(event.alpha);
-          setOrientationAvailable(true);
-        }
-      };
-
-      window.addEventListener('deviceorientation', handleOrientation);
-      return () => window.removeEventListener('deviceorientation', handleOrientation);
-    }
+    setupOrientation();
+    return () => {
+      if (orientationCleanupRef.current) orientationCleanupRef.current();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Redirect if no target area selected
