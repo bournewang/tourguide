@@ -13,14 +13,45 @@ const MapView3D = () => {
   const [userHeading, setUserHeading] = useState(0);
   const [orientationAvailable, setOrientationAvailable] = useState(false);
 
-  // load map script and init
+  // handle device orientation
+  const setupOrientation = async () => {
+    if (window.DeviceOrientationEvent) {
+      let granted = true;
+      if (typeof window.DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const result = await window.DeviceOrientationEvent.requestPermission();
+          granted = result === 'granted';
+        } catch (err) {
+          granted = false;
+          console.error('Device orientation permission denied', err);
+        }
+      }
+      if (granted) {
+        if (orientationCleanupRef.current) orientationCleanupRef.current();
+        const handleOrientation = (event) => {
+          if (event.alpha !== null) {
+            const heading = (360 - event.alpha) % 360;
+            setUserHeading(heading);
+            setOrientationAvailable(true);
+          }
+        };
+        window.addEventListener('deviceorientation', handleOrientation);
+        orientationCleanupRef.current = () =>
+          window.removeEventListener('deviceorientation', handleOrientation);
+      }
+    }
+  };
+
+  // load map script, init, and request orientation permission on entry
   useEffect(() => {
     if (!currentTargetArea) {
       navigate('/select-area');
       return;
     }
 
-    const loadScript = (src) => (
+    setupOrientation();
+
+    const loadScript = (src) =>
       new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = src;
@@ -28,8 +59,7 @@ const MapView3D = () => {
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);
-      })
-    );
+      });
 
     const initializeMap = async () => {
       const centerLng = currentTargetArea.center?.lng || 113.05;
@@ -95,44 +125,11 @@ const MapView3D = () => {
     };
 
     loadAndInit();
-  }, [currentTargetArea, navigate]);
 
-  // handle device orientation
-  const setupOrientation = async () => {
-    if (window.DeviceOrientationEvent) {
-      let granted = true;
-      if (typeof window.DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-          const result = await window.DeviceOrientationEvent.requestPermission();
-          granted = result === 'granted';
-        } catch (err) {
-          granted = false;
-          console.error('Device orientation permission denied', err);
-        }
-      }
-      if (granted) {
-        if (orientationCleanupRef.current) orientationCleanupRef.current();
-        const handleOrientation = (event) => {
-          if (event.alpha !== null) {
-            const heading = (360 - event.alpha) % 360;
-            setUserHeading(heading);
-            setOrientationAvailable(true);
-          }
-        };
-        window.addEventListener('deviceorientation', handleOrientation);
-        orientationCleanupRef.current = () =>
-          window.removeEventListener('deviceorientation', handleOrientation);
-      }
-    }
-  };
-
-  useEffect(() => {
-    setupOrientation();
     return () => {
       if (orientationCleanupRef.current) orientationCleanupRef.current();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentTargetArea, navigate]);
 
   // update user location marker
   useEffect(() => {
