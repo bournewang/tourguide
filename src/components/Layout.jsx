@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTargetArea } from '../hooks/useTargetArea';
 import { getValidationStatus } from '../utils/validationStatus';
+import { requestOrientationPermission } from '../utils/orientation';
 
 const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdmin = false }) => {
   const navigate = useNavigate();
@@ -43,6 +44,11 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
 
   const handleNavigate = (path) => {
     navigate(path);
+  };
+
+  const handleNavigate3D = async () => {
+    await requestOrientationPermission();
+    handleNavigate('/map3d');
   };
 
   const isActive = (path) => {
@@ -125,7 +131,7 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
 
             {/* 3D Map Button */}
             <button
-              onClick={() => handleNavigate('/map3d')}
+              onClick={handleNavigate3D}
               className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
                 isActive('/map3d')
                   ? 'text-blue-600 bg-blue-50'

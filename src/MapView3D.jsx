@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
 import { ttsService } from './utils/ttsService';
+import { requestOrientationPermission } from './utils/orientation';
 
 const MapView3D = () => {
   const navigate = useNavigate();
@@ -14,35 +15,23 @@ const MapView3D = () => {
   const [orientationAvailable, setOrientationAvailable] = useState(false);
 
   // handle device orientation
-  const setupOrientation = async () => {
+  const setupOrientation = () => {
     if (window.DeviceOrientationEvent) {
-      let granted = true;
-      if (typeof window.DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-          const result = await window.DeviceOrientationEvent.requestPermission();
-          granted = result === 'granted';
-        } catch (err) {
-          granted = false;
-          console.error('Device orientation permission denied', err);
+      if (orientationCleanupRef.current) orientationCleanupRef.current();
+      const handleOrientation = (event) => {
+        if (event.alpha !== null) {
+          const heading = (360 - event.alpha) % 360;
+          setUserHeading(heading);
+          setOrientationAvailable(true);
         }
-      }
-      if (granted) {
-        if (orientationCleanupRef.current) orientationCleanupRef.current();
-        const handleOrientation = (event) => {
-          if (event.alpha !== null) {
-            const heading = (360 - event.alpha) % 360;
-            setUserHeading(heading);
-            setOrientationAvailable(true);
-          }
-        };
-        window.addEventListener('deviceorientation', handleOrientation);
-        orientationCleanupRef.current = () =>
-          window.removeEventListener('deviceorientation', handleOrientation);
-      }
+      };
+      window.addEventListener('deviceorientation', handleOrientation);
+      orientationCleanupRef.current = () =>
+        window.removeEventListener('deviceorientation', handleOrientation);
     }
   };
 
-  // load map script, init, and request orientation permission on entry
+  // load map script and initialize when target area is available
   useEffect(() => {
     if (!currentTargetArea) {
       navigate('/select-area');
@@ -163,7 +152,10 @@ const MapView3D = () => {
       mapRef.current.centerAndZoom(point, 18);
     }
     if (!orientationAvailable) {
-      await setupOrientation();
+      const granted = await requestOrientationPermission();
+      if (granted) {
+        setupOrientation();
+      }
     }
   };
 
