@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
 import { ttsService } from './utils/ttsService';
 import { isPointInBounds } from './utils/boundaryUtils';
+import { requestOrientationPermission, getCompassHeading } from './utils/orientation';
 
 const MapView = () => {
   const navigate = useNavigate();
@@ -52,31 +53,24 @@ const MapView = () => {
   };
 
   const setupOrientation = async () => {
-    if (window.DeviceOrientationEvent) {
-      let granted = true;
-      if (typeof window.DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-          const result = await window.DeviceOrientationEvent.requestPermission();
-          granted = result === 'granted';
-        } catch (err) {
-          granted = false;
-          console.error('Device orientation permission denied', err);
-        }
+    if (!window.DeviceOrientationEvent) return;
+    const granted = await requestOrientationPermission();
+    if (!granted) return;
+
+    if (orientationCleanupRef.current) orientationCleanupRef.current();
+    const handleOrientation = (event) => {
+      const heading = getCompassHeading(event);
+      if (typeof heading === 'number') {
+        setUserHeading(heading);
+        setOrientationAvailable(true);
       }
-      if (granted) {
-        if (orientationCleanupRef.current) orientationCleanupRef.current();
-        const handleOrientation = (event) => {
-          if (event.alpha !== null) {
-            const heading = (360 - event.alpha) % 360;
-            setUserHeading(heading);
-            setOrientationAvailable(true);
-          }
-        };
-        window.addEventListener('deviceorientation', handleOrientation);
-        orientationCleanupRef.current = () =>
-          window.removeEventListener('deviceorientation', handleOrientation);
-      }
-    }
+    };
+    window.addEventListener('deviceorientationabsolute', handleOrientation);
+    window.addEventListener('deviceorientation', handleOrientation);
+    orientationCleanupRef.current = () => {
+      window.removeEventListener('deviceorientationabsolute', handleOrientation);
+      window.removeEventListener('deviceorientation', handleOrientation);
+    };
   };
 
   const handleGoToUserLocation = async () => {

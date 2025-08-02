@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
 import { ttsService } from './utils/ttsService';
-import { requestOrientationPermission } from './utils/orientation';
+import { requestOrientationPermission, getCompassHeading } from './utils/orientation';
 
 const MapView3D = () => {
   const navigate = useNavigate();
@@ -16,19 +16,21 @@ const MapView3D = () => {
 
   // handle device orientation
   const setupOrientation = () => {
-    if (window.DeviceOrientationEvent) {
-      if (orientationCleanupRef.current) orientationCleanupRef.current();
-      const handleOrientation = (event) => {
-        if (event.alpha !== null) {
-          const heading = (360 - event.alpha) % 360;
-          setUserHeading(heading);
-          setOrientationAvailable(true);
-        }
-      };
-      window.addEventListener('deviceorientation', handleOrientation);
-      orientationCleanupRef.current = () =>
-        window.removeEventListener('deviceorientation', handleOrientation);
-    }
+    if (!window.DeviceOrientationEvent) return;
+    if (orientationCleanupRef.current) orientationCleanupRef.current();
+    const handleOrientation = (event) => {
+      const heading = getCompassHeading(event);
+      if (typeof heading === 'number') {
+        setUserHeading(heading);
+        setOrientationAvailable(true);
+      }
+    };
+    window.addEventListener('deviceorientationabsolute', handleOrientation);
+    window.addEventListener('deviceorientation', handleOrientation);
+    orientationCleanupRef.current = () => {
+      window.removeEventListener('deviceorientationabsolute', handleOrientation);
+      window.removeEventListener('deviceorientation', handleOrientation);
+    };
   };
 
   // load map script and initialize when target area is available
@@ -38,7 +40,11 @@ const MapView3D = () => {
       return;
     }
 
-    setupOrientation();
+    const initOrientation = async () => {
+      const granted = await requestOrientationPermission();
+      if (granted) setupOrientation();
+    };
+    initOrientation();
 
     const loadScript = (src) =>
       new Promise((resolve, reject) => {
@@ -142,7 +148,7 @@ const MapView3D = () => {
     }
 
     if (orientationAvailable && userMarkerRef.current) {
-      userMarkerRef.current.setRotation(userHeading);
+      userMarkerRef.current.setRotation((360 - userHeading) % 360);
     }
   }, [userLocation, userHeading, orientationAvailable]);
 
