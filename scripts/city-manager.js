@@ -107,8 +107,9 @@ function switchToCity(cityName) {
   
   // Create .env.local file with city-specific environment variables
   const envContent = [
-    `VITE_RESOURCE_BASE_URL=${config.resourceBaseUrl}`,
+    `VITE_RESOURCE_BASE_URL=http://localhost:5173`,
     `VITE_WORKER_URL=${config.workerUrl}`,
+    `VITE_CITY_NAME=${config.cityName || config.displayName}`,
     `VITE_BAIDU_API_KEY=${commonEnvVars.VITE_BAIDU_API_KEY}`,
     `VITE_AZURE_SPEECH_REGION=${commonEnvVars.VITE_AZURE_SPEECH_REGION}`,
     `VITE_AZURE_SPEECH_KEY=${commonEnvVars.VITE_AZURE_SPEECH_KEY}`,
@@ -127,6 +128,15 @@ function switchToCity(cityName) {
   
   // Update dataService configuration
   updateDataServiceConfig(config);
+  
+  // Update HTML title
+  updateHTMLTitle(config);
+  
+  // Update HTML logo
+  updateHTMLLogo(config);
+  
+  // Update asset links
+  updateAssetLinks(config);
   
   console.log(`🎯 Successfully switched to ${config.displayName}`);
   console.log(`📊 Project: ${config.projectName}`);
@@ -189,6 +199,142 @@ function updateDataServiceConfig(config) {
   }
 }
 
+// Update HTML title
+function updateHTMLTitle(config) {
+  const htmlFile = path.join(__dirname, '../index.html');
+  
+  if (fs.existsSync(htmlFile)) {
+    let content = fs.readFileSync(htmlFile, 'utf8');
+    
+    // Generate title based on city configuration
+    const title = `${config.displayName}导游解说`;
+    
+    // Update title tag
+    content = content.replace(
+      /<title>[^<]*<\/title>/,
+      `<title>${title}</title>`
+    );
+    
+    fs.writeFileSync(htmlFile, content);
+    console.log(`✅ HTML title updated to: ${title}`);
+  } else {
+    console.warn(`⚠️ HTML file not found: ${htmlFile}`);
+  }
+}
+
+// Update HTML logo
+function updateHTMLLogo(config) {
+  const logosDir = path.join(__dirname, '../logos');
+  const targetLogoPath = path.join(__dirname, '../public/logo.png');
+  const sourceLogoPath = path.join(__dirname, '..', config.logoPath);
+  
+  // Create logos directory if it doesn't exist
+  if (!fs.existsSync(logosDir)) {
+    fs.mkdirSync(logosDir, { recursive: true });
+    console.log(`📁 Created logos directory: ${logosDir}`);
+  }
+  
+  // Check if city-specific logo exists
+  if (fs.existsSync(sourceLogoPath)) {
+    // Copy city logo to main logo.png
+    fs.copyFileSync(sourceLogoPath, targetLogoPath);
+    console.log(`✅ Logo updated to: ${config.logoPath}`);
+  } else {
+    console.warn(`⚠️ City logo not found: ${config.logoPath}`);
+    console.log(`💡 Please add a logo file at: ${sourceLogoPath}`);
+    
+    // If no city logo, keep the existing logo.png
+    if (fs.existsSync(targetLogoPath)) {
+      console.log(`📋 Keeping existing logo.png`);
+    } else {
+      console.warn(`⚠️ No logo.png found, please add a default logo`);
+    }
+  }
+}
+
+// Update asset links
+function updateAssetLinks(config) {
+  const publicAssetsDir = path.join(__dirname, '../public/assets');
+  const cityAssetsDir = path.join(__dirname, '..', config.assetsPath);
+  
+  // Remove existing assets link if it exists
+  if (fs.existsSync(publicAssetsDir)) {
+    if (fs.lstatSync(publicAssetsDir).isSymbolicLink()) {
+      fs.unlinkSync(publicAssetsDir);
+      console.log(`🗑️ Removed existing assets symlink`);
+    } else {
+      // If it's a directory, remove it
+      fs.rmSync(publicAssetsDir, { recursive: true, force: true });
+      console.log(`🗑️ Removed existing assets directory`);
+    }
+  }
+  
+  // Create symlink from city assets to public/assets
+  if (fs.existsSync(cityAssetsDir)) {
+    try {
+      fs.symlinkSync(cityAssetsDir, publicAssetsDir, 'dir');
+      console.log(`🔗 Created assets symlink: ${config.assetsPath} → public/assets`);
+    } catch (error) {
+      console.error(`❌ Failed to create assets symlink: ${error.message}`);
+    }
+  } else {
+    console.warn(`⚠️ City assets directory not found: ${config.assetsPath}`);
+    console.log(`💡 Please create the assets directory: ${cityAssetsDir}`);
+  }
+}
+
+// Prepare for deployment
+function prepareForDeployment(config) {
+  console.log(`🔧 Preparing for deployment...`);
+  
+  // Update .env.local to use real resource URL
+  const envFile = path.join(__dirname, '..', '.env.local');
+  if (fs.existsSync(envFile)) {
+    let envContent = fs.readFileSync(envFile, 'utf8');
+    
+    // Replace localhost with real resource URL
+    envContent = envContent.replace(
+      /VITE_RESOURCE_BASE_URL=http:\/\/localhost:5173/,
+      `VITE_RESOURCE_BASE_URL=${config.resourceBaseUrl}`
+    );
+    
+    fs.writeFileSync(envFile, envContent);
+    console.log(`✅ Updated VITE_RESOURCE_BASE_URL to: ${config.resourceBaseUrl}`);
+  }
+  
+  // Remove assets symlink to avoid including assets in deployment
+  const publicAssetsDir = path.join(__dirname, '../public/assets');
+  if (fs.existsSync(publicAssetsDir)) {
+    if (fs.lstatSync(publicAssetsDir).isSymbolicLink()) {
+      fs.unlinkSync(publicAssetsDir);
+      console.log(`🗑️ Removed assets symlink for deployment`);
+    }
+  }
+}
+
+// Restore development setup
+function restoreDevelopmentSetup(config) {
+  console.log(`🔄 Restoring development setup...`);
+  
+  // Update .env.local back to localhost
+  const envFile = path.join(__dirname, '..', '.env.local');
+  if (fs.existsSync(envFile)) {
+    let envContent = fs.readFileSync(envFile, 'utf8');
+    
+    // Replace real resource URL with localhost
+    envContent = envContent.replace(
+      /VITE_RESOURCE_BASE_URL=https?:\/\/[^/\s]+/,
+      'VITE_RESOURCE_BASE_URL=http://localhost:5173'
+    );
+    
+    fs.writeFileSync(envFile, envContent);
+    console.log(`✅ Restored VITE_RESOURCE_BASE_URL to: http://localhost:5173`);
+  }
+  
+  // Recreate assets symlink for development
+  updateAssetLinks(config);
+}
+
 // Deploy city
 async function deployCity(cityName) {
   console.log(`🚀 Deploying city: ${cityName}`);
@@ -197,6 +343,9 @@ async function deployCity(cityName) {
   
   // Switch to city first
   switchToCity(cityName);
+  
+  // Prepare for deployment
+  prepareForDeployment(config);
   
   // Run deployment
   console.log(`📦 Building and deploying ${config.displayName}...`);
@@ -209,8 +358,13 @@ async function deployCity(cityName) {
       cwd: path.join(__dirname, '..')
     });
     console.log(`✅ Successfully deployed ${config.displayName} to ${config.projectName}`);
+    
+    // Restore development setup after deployment
+    restoreDevelopmentSetup(config);
   } catch (error) {
     console.error(`❌ Deployment failed: ${error.message}`);
+    // Restore development setup even if deployment fails
+    restoreDevelopmentSetup(config);
     process.exit(1);
   }
 }
@@ -243,6 +397,38 @@ function showCurrentCity() {
     
     console.log(`📍 Current city: ${currentCity}`);
     console.log(`🌐 Domain: ${domain}`);
+    
+    // Show current HTML title
+    const htmlFile = path.join(__dirname, '../index.html');
+    if (fs.existsSync(htmlFile)) {
+      const htmlContent = fs.readFileSync(htmlFile, 'utf8');
+      const titleMatch = htmlContent.match(/<title>([^<]*)<\/title>/);
+      if (titleMatch) {
+        console.log(`📄 HTML title: ${titleMatch[1]}`);
+      }
+    }
+    
+    // Show current logo
+    const logoFile = path.join(__dirname, '../public/logo.png');
+    if (fs.existsSync(logoFile)) {
+      const stats = fs.statSync(logoFile);
+      console.log(`🖼️ Current logo: logo.png (${(stats.size / 1024).toFixed(1)}KB)`);
+    } else {
+      console.log(`🖼️ No logo.png found`);
+    }
+    
+    // Show current assets link
+    const assetsLink = path.join(__dirname, '../public/assets');
+    if (fs.existsSync(assetsLink)) {
+      if (fs.lstatSync(assetsLink).isSymbolicLink()) {
+        const target = fs.readlinkSync(assetsLink);
+        console.log(`🔗 Assets link: public/assets → ${target}`);
+      } else {
+        console.log(`📁 Assets: public/assets (directory)`);
+      }
+    } else {
+      console.log(`❌ No assets link found`);
+    }
   } else {
     console.log(`📍 No city currently selected`);
   }
