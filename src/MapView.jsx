@@ -67,7 +67,8 @@ const MapView = () => {
         if (orientationCleanupRef.current) orientationCleanupRef.current();
         const handleOrientation = (event) => {
           if (event.alpha !== null) {
-            setUserHeading(event.alpha);
+            const heading = (360 - event.alpha) % 360;
+            setUserHeading(heading);
             setOrientationAvailable(true);
           }
         };
@@ -649,8 +650,8 @@ const MapView = () => {
                 transition: 'transform 0.1s ease-out'
               }}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L12 22M12 2L8 6M12 2L16 6" stroke="#3b82f6"/>
+              <svg viewBox="0 0 24 24" fill="#3b82f6" stroke="white" strokeWidth="2" strokeLinejoin="round">
+                <path d="M12 2L20 22L12 17L4 22Z" />
               </svg>
             </div>
             <span className="text-xs text-gray-600">方向</span>

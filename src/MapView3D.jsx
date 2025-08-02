@@ -114,7 +114,8 @@ const MapView3D = () => {
         if (orientationCleanupRef.current) orientationCleanupRef.current();
         const handleOrientation = (event) => {
           if (event.alpha !== null) {
-            setUserHeading(event.alpha);
+            const heading = (360 - event.alpha) % 360;
+            setUserHeading(heading);
             setOrientationAvailable(true);
           }
         };
@@ -139,8 +140,9 @@ const MapView3D = () => {
 
     const point = new window.BMapGL.Point(userLocation.lng, userLocation.lat);
     if (!userMarkerRef.current) {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'>` +
-        `<path d='M12 2L12 22M12 2L8 6M12 2L16 6' stroke='white' stroke-width='2' fill='#3b82f6'/></svg>`;
+      const svg =
+        `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'>` +
+        `<path d='M12 2L20 22L12 17L4 22Z' fill='#3b82f6' stroke='white' stroke-width='2' stroke-linejoin='round'/></svg>`;
       const icon = new window.BMapGL.Icon(
         `data:image/svg+xml;base64,${window.btoa(svg)}`,
         new window.BMapGL.Size(32, 32),
@@ -191,8 +193,8 @@ const MapView3D = () => {
           }`}
           title={userLocation ? '我的位置' : '位置不可用'}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2L12 22M12 2L8 6M12 2L16 6" stroke={userLocation ? '#3b82f6' : '#9ca3af'} />
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L20 22L12 17L4 22Z" />
           </svg>
         </button>
       </div>
