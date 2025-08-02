@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
 import { ttsService } from './utils/ttsService';
 import { isPointInBounds } from './utils/boundaryUtils';
+import { requestOrientationPermission, getCompassHeading } from './utils/orientation';
 
 const MapView = () => {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ const MapView = () => {
   const [spots, setSpots] = useState([]);
   const [userHeading, setUserHeading] = useState(0);
   const [orientationAvailable, setOrientationAvailable] = useState(false);
+  const orientationCleanupRef = useRef(null);
   const hasAutoCentered = useRef(false);
   const spotsRef = useRef([]);
   const canvasLayerRef = useRef(null);
@@ -50,7 +52,28 @@ const MapView = () => {
     }
   };
 
-  const handleGoToUserLocation = () => {
+  const setupOrientation = async () => {
+    if (!window.DeviceOrientationEvent) return;
+    const granted = await requestOrientationPermission();
+    if (!granted) return;
+
+    if (orientationCleanupRef.current) orientationCleanupRef.current();
+    const handleOrientation = (event) => {
+      const heading = getCompassHeading(event);
+      if (typeof heading === 'number') {
+        setUserHeading(heading);
+        setOrientationAvailable(true);
+      }
+    };
+    window.addEventListener('deviceorientationabsolute', handleOrientation);
+    window.addEventListener('deviceorientation', handleOrientation);
+    orientationCleanupRef.current = () => {
+      window.removeEventListener('deviceorientationabsolute', handleOrientation);
+      window.removeEventListener('deviceorientation', handleOrientation);
+    };
+  };
+
+  const handleGoToUserLocation = async () => {
     console.log('📍 handleGoToUserLocation called');
     console.log('📍 map available:', !!map);
     console.log('📍 userLocation available:', !!userLocation);
@@ -73,6 +96,9 @@ const MapView = () => {
       console.log('✅ Map centered on user location');
     } catch (error) {
       console.error('❌ Error centering map on user location:', error);
+    }
+    if (!orientationAvailable) {
+      await setupOrientation();
     }
   };
 
@@ -459,17 +485,11 @@ const MapView = () => {
 
   // Handle device orientation
   useEffect(() => {
-    if (window.DeviceOrientationEvent) {
-      const handleOrientation = (event) => {
-        if (event.alpha !== null) {
-          setUserHeading(event.alpha);
-          setOrientationAvailable(true);
-        }
-      };
-
-      window.addEventListener('deviceorientation', handleOrientation);
-      return () => window.removeEventListener('deviceorientation', handleOrientation);
-    }
+    setupOrientation();
+    return () => {
+      if (orientationCleanupRef.current) orientationCleanupRef.current();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Redirect if no target area selected
@@ -624,8 +644,8 @@ const MapView = () => {
                 transition: 'transform 0.1s ease-out'
               }}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L12 22M12 2L8 6M12 2L16 6" stroke="#3b82f6"/>
+              <svg viewBox="0 0 24 24" fill="#3b82f6" stroke="white" strokeWidth="2" strokeLinejoin="round">
+                <path d="M12 2L20 22L12 17L4 22Z" />
               </svg>
             </div>
             <span className="text-xs text-gray-600">方向</span>
