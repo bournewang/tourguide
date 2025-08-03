@@ -5,7 +5,7 @@ import { dataService } from '../utils/dataService';
 
 const ScenicAreaSelector = () => {
   const navigate = useNavigate();
-  const { setTargetArea, currentTargetArea, isAutoSelectionEnabled, toggleAutoSelection } = useTargetArea();
+  const { setTargetArea, currentTargetArea, isAutoSelectionEnabled, toggleAutoSelection, mapOrientation, toggleMapOrientation } = useTargetArea();
   const [scenicAreas, setScenicAreas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -69,29 +69,55 @@ const ScenicAreaSelector = () => {
 
   return (
     <div className="min-h-full bg-gray-50">
-      {/* Header with Auto-Selection Switcher */}
-      <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-800">选择景区</h1>
+      {/* Header with Auto-Selection and Map Orientation Switchers */}
+      <div className="bg-white border-b border-gray-200 px-3 py-2">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-lg font-semibold text-gray-800">选择景区</h1>
+        </div>
         
-        {/* Auto-Selection Toggle */}
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-600">自动选择</span>
-          <button
-            onClick={toggleAutoSelection}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-              isAutoSelectionEnabled ? 'bg-blue-600' : 'bg-gray-200'
-            }`}
-            title={isAutoSelectionEnabled ? '自动选择已启用' : '自动选择已禁用'}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                isAutoSelectionEnabled ? 'translate-x-6' : 'translate-x-1'
+        {/* Settings Row */}
+        <div className="flex items-center justify-between">
+          {/* Auto-Selection Toggle */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">自动选择</span>
+            <button
+              onClick={toggleAutoSelection}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                isAutoSelectionEnabled ? 'bg-blue-600' : 'bg-gray-200'
               }`}
-            />
-          </button>
-          <span className="text-xs text-gray-500">
-            {isAutoSelectionEnabled ? '开启' : '关闭'}
-          </span>
+              title={isAutoSelectionEnabled ? '自动选择已启用' : '自动选择已禁用'}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isAutoSelectionEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className="text-xs text-gray-500">
+              {isAutoSelectionEnabled ? '开启' : '关闭'}
+            </span>
+          </div>
+          
+          {/* Map Orientation Toggle */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">地图方向</span>
+            <button
+              onClick={toggleMapOrientation}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                mapOrientation === 'user-up' ? 'bg-green-600' : 'bg-gray-200'
+              }`}
+              title={mapOrientation === 'user-up' ? '用户方向向上' : '北方向向上'}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  mapOrientation === 'user-up' ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className="text-xs text-gray-500">
+              {mapOrientation === 'user-up' ? '用户向上' : '北向上'}
+            </span>
+          </div>
         </div>
       </div>
 

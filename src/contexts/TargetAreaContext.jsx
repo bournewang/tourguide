@@ -13,6 +13,7 @@ export const TargetAreaProvider = ({ children }) => {
   const [isLocationWatching, setIsLocationWatching] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
   const [isAutoSelectionEnabled, setIsAutoSelectionEnabled] = useState(true);
+  const [mapOrientation, setMapOrientation] = useState('north-up'); // 'north-up' or 'user-up'
   const watchIdRef = useRef(null);
   const lastSpotsCalculationRef = useRef(null);
   const lastAreaCalculationRef = useRef(null);
@@ -37,6 +38,12 @@ export const TargetAreaProvider = ({ children }) => {
     const autoSelectionEnabled = storedAutoSelection === null ? true : storedAutoSelection === 'true';
     setIsAutoSelectionEnabled(autoSelectionEnabled);
     console.log('Auto-selection enabled:', autoSelectionEnabled, '(from localStorage:', storedAutoSelection, ')');
+    
+    // Load map orientation preference
+    const storedMapOrientation = localStorage.getItem('mapOrientation');
+    const mapOrientation = storedMapOrientation === 'user-up' ? 'user-up' : 'north-up';
+    setMapOrientation(mapOrientation);
+    console.log('Map orientation:', mapOrientation, '(from localStorage:', storedMapOrientation, ')');
     
     if (debugMode) {
       console.log('Debug mode active, stopping real geolocation');
@@ -365,6 +372,18 @@ export const TargetAreaProvider = ({ children }) => {
     console.log('Auto-selection set to:', enabled ? 'enabled' : 'disabled');
   };
 
+  // Map orientation control functions
+  const setMapOrientationMode = (orientation) => {
+    setMapOrientation(orientation);
+    localStorage.setItem('mapOrientation', orientation);
+    console.log('Map orientation set to:', orientation);
+  };
+
+  const toggleMapOrientation = () => {
+    const newOrientation = mapOrientation === 'north-up' ? 'user-up' : 'north-up';
+    setMapOrientationMode(newOrientation);
+  };
+
   return (
     <TargetAreaContext.Provider
       value={{
@@ -384,7 +403,10 @@ export const TargetAreaProvider = ({ children }) => {
         updateMockLocation,
         isAutoSelectionEnabled,
         toggleAutoSelection,
-        setAutoSelectionEnabled
+        setAutoSelectionEnabled,
+        mapOrientation,
+        setMapOrientationMode,
+        toggleMapOrientation
       }}
     >
       {children}
