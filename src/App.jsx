@@ -4,6 +4,7 @@ import './App.css'
 import SpotList from './SpotList'
 import SpotDetail from './SpotDetail'
 import MapView from './MapView'
+import MapView3D from './MapView3D'
 import ScenicAreaSelector from './pages/ScenicAreaSelector'
 import AccessGate from './components/AccessGate'
 import Layout from './components/Layout'
@@ -83,6 +84,12 @@ function AppLayout({ isAdmin }) {
         <Route path="/map" element={
           <Layout title="景点地图" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
             <MapView />
+          </Layout>
+        } />
+
+        <Route path="/map3d" element={
+          <Layout title="3D地图" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
+            <MapView3D />
           </Layout>
         } />
         
