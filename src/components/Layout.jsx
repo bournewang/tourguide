@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTargetArea } from '../hooks/useTargetArea';
 import { getValidationStatus } from '../utils/validationStatus';
+import { requestOrientationPermission } from '../utils/orientation';
 
 const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdmin = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isDebugMode, currentTargetArea } = useTargetArea();
+  const { currentTargetArea } = useTargetArea();
   const [sessionStatus, setSessionStatus] = useState(null);
 
   // Update session status periodically
@@ -43,6 +44,11 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
 
   const handleNavigate = (path) => {
     navigate(path);
+  };
+
+  const handleNavigate3D = async () => {
+    await requestOrientationPermission();
+    handleNavigate('/map3d');
   };
 
   const isActive = (path) => {
@@ -112,8 +118,8 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
             <button
               onClick={() => handleNavigate('/map')}
               className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
-                isActive('/map') 
-                  ? 'text-blue-600 bg-blue-50' 
+                isActive('/map')
+                  ? 'text-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
               }`}
             >
@@ -121,6 +127,23 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m-6 3l6-3" />
               </svg>
               <span className="text-xs">地图</span>
+            </button>
+
+            {/* 3D Map Button */}
+            <button
+              onClick={handleNavigate3D}
+              className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
+                isActive('/map3d')
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 16V8a2 2 0 00-1-1.732l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.732l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                <polyline strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} points="3.27 6.96 12 12 20.73 6.96" />
+                <line x1="12" y1="22" x2="12" y2="12" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+              </svg>
+              <span className="text-xs">3D地图</span>
             </button>
 
             {/* Scenic Area Selector Button */}
