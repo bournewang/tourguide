@@ -51,7 +51,7 @@ const BoundaryView = () => {
   const [selectedAreasForFetch, setSelectedAreasForFetch] = useState([]);
   const [hasFetchedBoundaries, setHasFetchedBoundaries] = useState(false);
 
-  const BAIDU_API_KEY = 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv';
+  const BAIDU_API_KEY = import.meta.env.VITE_BAIDU_API_KEY;
 
   const loadScenicAreas = async () => {
     try {

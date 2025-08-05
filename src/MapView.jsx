@@ -19,7 +19,7 @@ const MapView = () => {
   const canvasLayerRef = useRef(null);
   const userLocationRef = useRef(null);
 
-  const BAIDU_API_KEY = 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv';
+  const BAIDU_API_KEY = import.meta.env.VITE_BAIDU_API_KEY;
 
   // Load spots for current target area only
   const loadSpots = async () => {

@@ -7,7 +7,7 @@ const isProduction = import.meta.env.PROD;
 const forceStatic = import.meta.env.VITE_USE_STATIC_DATA === 'true';
 
 // API configuration
-const API_BASE = import.meta.env.VITE_WORKER_URL || 'https://worker.qingfan.org';
+const API_BASE = import.meta.env.VITE_RESOURCE_BASE_URL || 'https://worker.qingfan.org';
 
 const DATA_PATH = '/assets/data';
 
