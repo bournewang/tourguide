@@ -7,7 +7,7 @@ const isProduction = import.meta.env.PROD;
 const forceStatic = import.meta.env.VITE_USE_STATIC_DATA === 'true';
 
 // API configuration
-const API_BASE = import.meta.env.VITE_RESOURCE_BASE_URL || 'https://worker.qingfan.org';
+const API_BASE = import.meta.env.VITE_WORKER_URL || 'https://worker.qingfan.org';
 
 const DATA_PATH = '/assets/data';
 
@@ -24,14 +24,14 @@ let _scenicAreasCache = null;
 
 // Determine data source based on environment
 export const getDataSource = () => {
-  if (forceStatic) {
-    //console.log('🗂️ Using STATIC data (forced by VITE_USE_STATIC_DATA)');
-    return 'static';
-  }
-  
   if (isDevelopment) {
     //console.log('🔧 Using API data (development mode)');
     return 'api';
+  }
+    
+  if (forceStatic) {
+    //console.log('🗂️ Using STATIC data (forced by VITE_USE_STATIC_DATA)');
+    return 'static';
   }
   
   if (isProduction) {
@@ -270,7 +270,7 @@ export const dataService = {
     if (dataSource === 'api') {
       // audioFile is like "/audio/filename.mp3", we need "https://worker.qingfan.org/api/audio/filename.mp3"
       if (audioFile.startsWith('/audio/')) {
-        return `${API_BASE}/api${audioFile}`;
+        return `${API_BASE}/assets${audioFile}`;
       }
     }
     

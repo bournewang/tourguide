@@ -156,7 +156,7 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
             )}
 
             {/* Editor Mode Button - Only show in admin mode AND development */}
-            {isAdmin && import.meta.env.DEV && (
+            {import.meta.env.DEV && (
               <button
                 onClick={() => handleNavigate('/editor')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
