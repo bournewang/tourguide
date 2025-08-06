@@ -22,6 +22,9 @@ const AccessGate = ({ children }) => {
 
   // Session monitoring effect
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      return;
+    }
     // Start session monitoring when validation is valid
     if (validationState === 'valid') {
       sessionMonitor.startMonitoring(
@@ -46,6 +49,9 @@ const AccessGate = ({ children }) => {
 
     // Listen for new session creation (when NFC is re-scanned)
     const handleNewSession = () => {
+      if (import.meta.env.DEV) {
+        return;
+      }
       console.log('New session created, restarting monitoring');
       
       // Restart monitoring with new session
@@ -107,6 +113,11 @@ const AccessGate = ({ children }) => {
         return;
       }
       
+      // skip validate in dev mode
+      if (import.meta.env.DEV) {
+        setLoading(false);
+        return;
+      }
       // Check if we have NFC parameters
       if (s) {
         console.log('🏷️ NFC s parameter found, showing app and validating in background...');
