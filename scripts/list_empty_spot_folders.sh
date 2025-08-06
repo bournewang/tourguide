@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Usage: sh scripts/list_empty_spot_folders.sh <scenic-area-folder>
-# Example: sh scripts/list_empty_spot_folders.sh public/assets/images/中岳庙/
+# Example: sh scripts/list_empty_spot_folders.sh public/assets/henan/dengfeng/images/中岳庙/
 
 if [ -z "$1" ]; then
   echo "Usage: $0 <scenic-area-folder>"

@@ -8,8 +8,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const SPOTS_DIR = 'public/assets/data/spots';
-const BACKUP_DIR = 'public/assets/data/spots/backup';
+const PROVINCE_NAME = process.env.PROVINCE_NAME || 'henan';
+const CITY_NAME = process.env.CITY_NAME || 'dengfeng';
+const SPOTS_DIR = path.join('public/assets', PROVINCE_NAME, CITY_NAME, 'data', 'spots');
+const BACKUP_DIR = path.join(SPOTS_DIR, 'backup');
 
 // Colors for console output
 const colors = {

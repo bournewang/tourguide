@@ -14,6 +14,9 @@ const __dirname = path.dirname(__filename);
 const AZURE_SPEECH_KEY = process.env.AZURE_SPEECH_KEY || '';
 const AZURE_SPEECH_REGION = process.env.AZURE_SPEECH_REGION || 'eastus';
 const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || '';
+const PROVINCE_NAME = process.env.PROVINCE_NAME || 'henan';
+const CITY_NAME = process.env.CITY_NAME || 'dengfeng';
+const ASSET_PREFIX = `/assets/${PROVINCE_NAME}/${CITY_NAME}`;
 
 // Default settings
 const DEFAULT_VOICE = 'zh-CN-XiaoxiaoNeural';
@@ -397,9 +400,9 @@ async function processSpot(spot, options) {
     audioFileName = `${safeName}.mp3`;
   }
   audioFile = path.join(options.outputDir, audioFileName);
-  // Generate audio path in the format: /assets/audio/areaName/spotName.mp3
+  // Generate audio path including province/city: /assets/province/city/audio/areaName/spotName.mp3
   const areaName = path.basename(options.outputDir);
-  audioPath = `/assets/audio/${areaName}/${audioFileName}`;
+  audioPath = `${ASSET_PREFIX}/audio/${areaName}/${audioFileName}`;
   // Check if files already exist
   if (!options.overwriteExisting && options.skipExisting && fs.existsSync(audioFile)) {
     console.log(`⏭️  跳过已存在的文件: ${safeName}`);

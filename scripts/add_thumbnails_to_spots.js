@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
 import fs from 'fs';
-import path from 'path';
+
+const PROVINCE_NAME = process.env.PROVINCE_NAME || 'henan';
+const CITY_NAME = process.env.CITY_NAME || 'dengfeng';
+const ASSET_PREFIX = `/assets/${PROVINCE_NAME}/${CITY_NAME}`;
 
 if (process.argv.length < 4) {
   console.error('Usage: node add_thumbnails_to_spots.js <spots-json-file> <scenic-area-name>');
@@ -36,7 +39,7 @@ data.results.forEach(spot => {
     console.warn('Skipping spot with no name:', spot);
     return;
   }
-  const thumbPath = `/thumb/${scenicAreaName}/${spot.name}/主图.jpg`;
+  const thumbPath = `${ASSET_PREFIX}/thumb/${scenicAreaName}/${spot.name}/主图.jpg`;
   if (spot.thumbnail !== thumbPath) {
     spot.thumbnail = thumbPath;
     updated++;

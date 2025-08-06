@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import fs from 'fs';
-import path from 'path';
 
 if (process.argv.length < 3 || !process.argv[2]) {
   console.error('Usage: node add_images_from_thumbnails.js <spots-json-file>');
@@ -30,14 +29,21 @@ if (!Array.isArray(spots)) {
   process.exit(1);
 }
 
+const PROVINCE_NAME = process.env.PROVINCE_NAME || 'henan';
+const CITY_NAME = process.env.CITY_NAME || 'dengfeng';
+const ASSET_PREFIX = `/assets/${PROVINCE_NAME}/${CITY_NAME}`;
+
 let updated = 0;
 spots.forEach(spot => {
   if (
     spot.thumbnail &&
     typeof spot.thumbnail === 'string' &&
-    spot.thumbnail.startsWith('/assets/thumb/')
+    spot.thumbnail.startsWith(`${ASSET_PREFIX}/thumb/`)
   ) {
-    const imagePath = spot.thumbnail.replace('/assets/thumb/', '/assets/images/');
+    const imagePath = spot.thumbnail.replace(
+      `${ASSET_PREFIX}/thumb/`,
+      `${ASSET_PREFIX}/images/`
+    );
     if (spot.image !== imagePath) {
       spot.image = imagePath;
       updated++;

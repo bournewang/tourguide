@@ -3,7 +3,7 @@
 /**
  * Sync script to download data from EdgeOne KV storage to local assets
  * Usage: node scripts/sync-from-edgeone.js [data-folder]
- * Example: node scripts/sync-from-edgeone.js assets/dengfeng/data
+ * Example: node scripts/sync-from-edgeone.js assets/henan/dengfeng/data
  */
 
 import fs from 'fs/promises';
@@ -16,9 +16,13 @@ const __dirname = path.dirname(__filename);
 
 // Configuration
 const API_BASE = process.env.EDGEONE_API_URL || 'https://df.qingfan.wang';
+const PROVINCE_NAME = process.env.PROVINCE_NAME || 'henan';
+const CITY_NAME = process.env.CITY_NAME || 'dengfeng';
 
 // Get data folder from command line argument or use default
-const DATA_FOLDER = process.argv[2] || path.join(__dirname, '../assets/dengfeng/data');
+const DATA_FOLDER =
+  process.argv[2] ||
+  path.join(__dirname, '..', 'assets', PROVINCE_NAME, CITY_NAME, 'data');
 
 // Colors for console output
 const colors = {

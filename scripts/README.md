@@ -4,7 +4,7 @@ This directory contains scripts for migrating and syncing data between local ass
 
 ## Migration to EdgeOne KV Storage
 
-The `migrate-to-edgeone.js` script migrates local data from `assets/dengfeng/data` to EdgeOne KV storage.
+The `migrate-to-edgeone.js` script migrates local data from `assets/<province>/<city>/data` (e.g., `assets/henan/dengfeng/data`) to EdgeOne KV storage.
 
 ### Prerequisites
 
@@ -41,7 +41,7 @@ EDGEONE_API_URL=https://your-worker-domain.com node migrate-to-edgeone.js spots/
 
 ### What it does
 
-1. **Loads Scenic Areas**: Reads `assets/dengfeng/data/scenic-area.json`
+1. **Loads Scenic Areas**: Reads `assets/<province>/<city>/data/scenic-area.json`
 2. **Uploads Scenic Areas**: Posts the scenic areas data to `/api/scenic-areas`
 3. **Loads Spots Data**: For each scenic area, reads its corresponding spots file
 4. **Uploads Spots Data**: Posts each area's spots data to `/api/spots`
@@ -65,7 +65,7 @@ The script provides colored console output showing:
 **Full Migration:**
 ```
 🚀 Starting data migration to EdgeOne KV storage...
-📁 Source path: /path/to/assets/dengfeng/data
+📁 Source path: /path/to/assets/henan/dengfeng/data
 🌐 API endpoint: https://df.qingfan.wang
 
 ✅ Loaded scenic areas data: 12 areas
@@ -89,7 +89,7 @@ The script provides colored console output showing:
 **Single File Migration:**
 ```
 🚀 Starting data migration to EdgeOne KV storage...
-📁 Source path: /path/to/assets/dengfeng/data
+📁 Source path: /path/to/assets/henan/dengfeng/data
 🌐 API endpoint: https://df.qingfan.wang
 🎯 Target spot file: spots/fawangsi.json
 
@@ -126,13 +126,13 @@ node sync-from-edgeone.js
 #### Option 2: Custom data folder
 ```bash
 cd scripts
-node sync-from-edgeone.js assets/dengfeng/data
+node sync-from-edgeone.js assets/henan/dengfeng/data
 ```
 
 #### Option 3: With custom API endpoint
 ```bash
 cd scripts
-EDGEONE_API_URL=https://your-worker-domain.com node sync-from-edgeone.js assets/dengfeng/data
+EDGEONE_API_URL=https://your-worker-domain.com node sync-from-edgeone.js assets/henan/dengfeng/data
 ```
 
 ### What it does
@@ -153,7 +153,7 @@ EDGEONE_API_URL=https://your-worker-domain.com node sync-from-edgeone.js assets/
 
 ```
 🔄 Starting sync from EdgeOne KV storage...
-📁 Target folder: /path/to/assets/dengfeng/data
+📁 Target folder: /path/to/assets/henan/dengfeng/data
 🌐 API endpoint: https://df.qingfan.wang
 
 ℹ️  Fetching scenic areas data from EdgeOne KV...
@@ -170,7 +170,7 @@ EDGEONE_API_URL=https://your-worker-domain.com node sync-from-edgeone.js assets/
    Total Spots: 359
    Successful Areas: 12
    Failed Areas: 0
-   Target Folder: /path/to/assets/dengfeng/data
+   Target Folder: /path/to/assets/henan/dengfeng/data
 🎉 Sync completed successfully!
 ```
 
@@ -201,7 +201,7 @@ EDGEONE_API_URL=https://your-worker-domain.com node migrate-to-edgeone.js
 
 ### What it does
 
-1. **Loads Scenic Areas**: Reads `assets/dengfeng/data/scenic-area.json`
+1. **Loads Scenic Areas**: Reads `assets/henan/dengfeng/data/scenic-area.json`
 2. **Uploads Scenic Areas**: Posts the scenic areas data to `/api/scenic-areas`
 3. **Loads Spots Data**: For each scenic area, reads its corresponding spots file
 4. **Uploads Spots Data**: Posts each area's spots data to `/api/spots`
@@ -224,7 +224,7 @@ The script provides colored console output showing:
 
 ```
 🚀 Starting data migration to EdgeOne KV storage...
-📁 Source path: /path/to/assets/dengfeng/data
+📁 Source path: /path/to/assets/henan/dengfeng/data
 🌐 API endpoint: https://worker.qingfan.org
 
 ✅ Loaded scenic areas data: 10 areas
@@ -254,6 +254,6 @@ The script provides colored console output showing:
 ### Troubleshooting
 
 1. **API Connection Issues**: Check if your EdgeOne functions are deployed and accessible
-2. **File Not Found**: Ensure the data files exist in `assets/dengfeng/data`
+2. **File Not Found**: Ensure the data files exist in `assets/henan/dengfeng/data`
 3. **Permission Issues**: Make sure the script has read access to the data files
 4. **KV Storage Issues**: Verify your EdgeOne KV bindings are configured correctly 

@@ -9,12 +9,16 @@ const forceStatic = import.meta.env.VITE_USE_STATIC_DATA === 'true';
 // API configuration
 const API_BASE = import.meta.env.VITE_WORKER_URL || 'https://worker.qingfan.org';
 
-const DATA_PATH = '/assets/data';
+// Location configuration for multi-province/city support
+const PROVINCE_NAME = import.meta.env.VITE_PROVINCE_NAME || '';
+const CITY_NAME = import.meta.env.VITE_CITY_NAME || '';
+const CITY_ASSETS_BASE = `/assets/${PROVINCE_NAME}/${CITY_NAME}`;
+const DATA_PATH = `${CITY_ASSETS_BASE}/data`;
 
 // Resource base URL for static assets
 const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_BASE_URL || '';
 
-// Static data paths (fixed for standalone city deployments)
+// Static data paths scoped to current province/city
 const getStaticPaths = () => ({
   scenicAreas: `${RESOURCE_BASE_URL}${DATA_PATH}/scenic-area.json`
 });
@@ -263,25 +267,24 @@ export const dataService = {
   // Resolve audio URL based on current mode
   resolveAudioUrl(audioFile) {
     if (!audioFile) return null;
-    
+
     const dataSource = getDataSource();
-    
-    // In development/API mode, prepend worker base URL + /api
+
+    // In development/API mode, prepend worker base URL
     if (dataSource === 'api') {
-      // audioFile is like "/audio/filename.mp3", we need "https://worker.qingfan.org/api/audio/filename.mp3"
-      if (audioFile.startsWith('/audio/')) {
-        return `${API_BASE}/assets${audioFile}`;
+      if (audioFile.startsWith('/assets/')) {
+        return `${API_BASE}${audioFile}`;
       }
     }
-    
-    // In static/production mode, use RESOURCE_BASE_URL
+
+    // In static/production mode, serve from resource base
     if (dataSource === 'static') {
       if (audioFile.startsWith('/')) {
         return `${RESOURCE_BASE_URL}${audioFile}`;
       }
     }
-    
-    // In static/production mode, use as-is (served from public/audio/)
+
+    // Fallback to original path
     return audioFile;
   },
 
