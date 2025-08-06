@@ -25,10 +25,6 @@ function loadCommonEnvVars() {
     console.warn(`⚠️  Common environment file not found: ${ENV_COMMON_FILE}`);
     return {
       VITE_BAIDU_API_KEY: 'nxCgqEZCeYebMtEi2YspKyYElw9GuCiv',
-      VITE_AZURE_SPEECH_REGION: 'eastasia',
-      VITE_AZURE_SPEECH_KEY: 'xxx-global',
-      VITE_DASHSCOPE_API_KEY: 'sk-xxx-global',
-      VITE_OPENAI_API_KEY: 'sk-xxx-global',
       EDGEONE_PAGES_API_TOKEN: ''
     };
   }
@@ -111,10 +107,10 @@ function switchToCity(cityName) {
     `VITE_WORKER_URL=${config.workerUrl}`,
     `VITE_CITY_NAME=${config.cityName || config.displayName}`,
     `VITE_BAIDU_API_KEY=${commonEnvVars.VITE_BAIDU_API_KEY}`,
-    `VITE_AZURE_SPEECH_REGION=${commonEnvVars.VITE_AZURE_SPEECH_REGION}`,
-    `VITE_AZURE_SPEECH_KEY=${commonEnvVars.VITE_AZURE_SPEECH_KEY}`,
-    `VITE_DASHSCOPE_API_KEY=${commonEnvVars.VITE_DASHSCOPE_API_KEY}`,
-    `VITE_OPENAI_API_KEY=${commonEnvVars.VITE_OPENAI_API_KEY}`
+    // `VITE_AZURE_SPEECH_REGION=${commonEnvVars.VITE_AZURE_SPEECH_REGION}`,
+    // `VITE_AZURE_SPEECH_KEY=${commonEnvVars.VITE_AZURE_SPEECH_KEY}`,
+    // `VITE_DASHSCOPE_API_KEY=${commonEnvVars.VITE_DASHSCOPE_API_KEY}`,
+    // `VITE_OPENAI_API_KEY=${commonEnvVars.VITE_OPENAI_API_KEY}`
   ].join('\n');
   
   fs.writeFileSync(ENV_FILE, envContent);

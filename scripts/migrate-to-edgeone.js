@@ -21,8 +21,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const API_BASE = process.env.EDGEONE_API_URL || 'https://worker.qingfan.org';
-const DATA_SOURCE_PATH = path.join(__dirname, '../assets/dengfeng/data');
+const API_BASE = process.env.VITE_WORKER_URL || 'https://worker.qingfan.org';
+const DATA_SOURCE_PATH = path.join(__dirname, '../assets/kaifeng/data');
 
 // Get command line arguments
 const TARGET_SPOT_FILE = process.argv[2]; // Optional: specific spot file to migrate
