@@ -94,7 +94,7 @@ if (args.length === 0) {
     } else {
       console.log('  No coordinate files found. Run a coordinate fetching script first.');
     }
-  } catch (error) {
+  } catch {
     console.log('  Could not list files.');
   }
 } else {
@@ -108,7 +108,7 @@ if (args.length === 0) {
       const files = fs.readdirSync('.')
         .filter(file => file.startsWith('coordinates_') && file.endsWith('.json'));
       files.forEach(file => console.log(`  - ${file}`));
-    } catch (error) {
+    } catch {
       console.log('  Could not list files.');
     }
   } else {

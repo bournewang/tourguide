@@ -11,8 +11,10 @@ if (process.argv.length < 4) {
 
 const spotsFile = process.argv[2];
 const scenicAreaName = process.argv[3];
-// const imagesRoot = path.resolve('public/assets/images', scenicAreaName);
-const imagesRoot = path.resolve('assets/dengfeng/images', scenicAreaName);
+const PROVINCE_NAME = process.env.PROVINCE_NAME || 'henan';
+const CITY_NAME = process.env.CITY_NAME || 'dengfeng';
+const ASSET_PREFIX = `/assets/${PROVINCE_NAME}/${CITY_NAME}`;
+const imagesRoot = path.resolve('assets', PROVINCE_NAME, CITY_NAME, 'images', scenicAreaName);
 
 if (!fs.existsSync(spotsFile)) {
   console.error('File not found:', spotsFile);
@@ -44,11 +46,11 @@ for (const spot of spots) {
   files.sort(); // Optional: sort alphabetically
   // Set main image and thumbnail to the first image
   const firstImage = files[0];
-  spot.image = `/assets/images/${scenicAreaName}/${spot.name}/${firstImage}`;
-  spot.thumbnail = `/assets/thumb/${scenicAreaName}/${spot.name}/${firstImage}`;
+  spot.image = `${ASSET_PREFIX}/images/${scenicAreaName}/${spot.name}/${firstImage}`;
+  spot.thumbnail = `${ASSET_PREFIX}/thumb/${scenicAreaName}/${spot.name}/${firstImage}`;
   // Always replace imageSequence
   spot.imageSequence = files.map((filename, idx) => ({
-    img: `/assets/images/${scenicAreaName}/${spot.name}/${filename}`,
+    img: `${ASSET_PREFIX}/images/${scenicAreaName}/${spot.name}/${filename}`,
     start: idx * 8,
     duration: 8,
     notes: path.parse(filename).name

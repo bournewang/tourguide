@@ -56,16 +56,19 @@ function testResourceManagement() {
     console.log('❌ public/assets not found');
   }
   
-  // Test 3: Check city assets directories
-  const cities = ['dengfeng', 'kaifeng', 'preview'];
+  // Test 3: Check province/city assets directories
+  const locations = [
+    { province: 'henan', city: 'dengfeng' },
+    { province: 'henan', city: 'kaifeng' }
+  ];
   console.log('\n📁 Checking city assets directories:');
-  
-  cities.forEach(city => {
-    const cityAssetsDir = path.join(__dirname, '..', 'assets', city);
-    if (fs.existsSync(cityAssetsDir)) {
-      console.log(`✅ assets/${city}/ exists`);
+
+  locations.forEach(({ province, city }) => {
+    const dir = path.join(__dirname, '..', 'assets', province, city);
+    if (fs.existsSync(dir)) {
+      console.log(`✅ assets/${province}/${city}/ exists`);
     } else {
-      console.log(`❌ assets/${city}/ missing`);
+      console.log(`❌ assets/${province}/${city}/ missing`);
     }
   });
   

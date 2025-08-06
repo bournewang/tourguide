@@ -58,12 +58,18 @@ function loadCityConfig(cityName) {
   }
   
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  
+
   // Set NFC baseUrl to workerUrl if not specified
   if (!config.nfc.baseUrl) {
     config.nfc.baseUrl = config.workerUrl;
   }
-  
+
+  // Ensure assetsPath follows province/city structure
+  if (!config.assetsPath) {
+    const province = config.province || '';
+    config.assetsPath = path.join('assets', province, cityName);
+  }
+
   console.log(`✅ Loaded configuration for ${config.displayName}`);
   return config;
 }
@@ -109,6 +115,7 @@ function switchToCity(cityName) {
   const envContent = [
     `VITE_RESOURCE_BASE_URL=http://localhost:5173`,
     `VITE_WORKER_URL=${config.workerUrl}`,
+    `VITE_PROVINCE_NAME=${config.province || ''}`,
     `VITE_CITY_NAME=${config.cityName || config.displayName}`,
     `VITE_BAIDU_API_KEY=${commonEnvVars.VITE_BAIDU_API_KEY}`,
     `VITE_AZURE_SPEECH_REGION=${commonEnvVars.VITE_AZURE_SPEECH_REGION}`,
@@ -136,7 +143,7 @@ function switchToCity(cityName) {
   updateHTMLLogo(config);
   
   // Update asset links
-  updateAssetLinks(config);
+  updateAssetLinks();
   
   console.log(`🎯 Successfully switched to ${config.displayName}`);
   console.log(`📊 Project: ${config.projectName}`);
@@ -144,6 +151,9 @@ function switchToCity(cityName) {
   console.log(`🌐 Worker URL: ${config.workerUrl}`);
   console.log(`📦 Resource URL: ${config.resourceBaseUrl}`);
   console.log(`📁 Assets: ${config.assetsPath}`);
+  if (config.province) {
+    console.log(`🏛️ Province: ${config.province}`);
+  }
 }
 
 // Update NFC configuration
@@ -253,33 +263,32 @@ function updateHTMLLogo(config) {
 }
 
 // Update asset links
-function updateAssetLinks(config) {
+function updateAssetLinks() {
   const publicAssetsDir = path.join(__dirname, '../public/assets');
-  const cityAssetsDir = path.join(__dirname, '..', config.assetsPath);
-  
+  const rootAssetsDir = path.join(__dirname, '..', 'assets');
+
   // Remove existing assets link if it exists
   if (fs.existsSync(publicAssetsDir)) {
     if (fs.lstatSync(publicAssetsDir).isSymbolicLink()) {
       fs.unlinkSync(publicAssetsDir);
       console.log(`🗑️ Removed existing assets symlink`);
     } else {
-      // If it's a directory, remove it
       fs.rmSync(publicAssetsDir, { recursive: true, force: true });
       console.log(`🗑️ Removed existing assets directory`);
     }
   }
-  
-  // Create symlink from city assets to public/assets
-  if (fs.existsSync(cityAssetsDir)) {
+
+  // Create symlink from root assets to public/assets
+  if (fs.existsSync(rootAssetsDir)) {
     try {
-      fs.symlinkSync(cityAssetsDir, publicAssetsDir, 'dir');
-      console.log(`🔗 Created assets symlink: ${config.assetsPath} → public/assets`);
+      fs.symlinkSync(rootAssetsDir, publicAssetsDir, 'dir');
+      console.log(`🔗 Created assets symlink: assets → public/assets`);
     } catch (error) {
       console.error(`❌ Failed to create assets symlink: ${error.message}`);
     }
   } else {
-    console.warn(`⚠️ City assets directory not found: ${config.assetsPath}`);
-    console.log(`💡 Please create the assets directory: ${cityAssetsDir}`);
+    console.warn(`⚠️ Assets directory not found: assets/`);
+    console.log(`💡 Please create the assets directory: ${rootAssetsDir}`);
   }
 }
 
@@ -313,7 +322,7 @@ function prepareForDeployment(config) {
 }
 
 // Restore development setup
-function restoreDevelopmentSetup(config) {
+function restoreDevelopmentSetup() {
   console.log(`🔄 Restoring development setup...`);
   
   // Update .env.local back to localhost
@@ -332,7 +341,7 @@ function restoreDevelopmentSetup(config) {
   }
   
   // Recreate assets symlink for development
-  updateAssetLinks(config);
+  updateAssetLinks();
 }
 
 // Deploy city
@@ -360,11 +369,11 @@ async function deployCity(cityName) {
     console.log(`✅ Successfully deployed ${config.displayName} to ${config.projectName}`);
     
     // Restore development setup after deployment
-    restoreDevelopmentSetup(config);
+    restoreDevelopmentSetup();
   } catch (error) {
     console.error(`❌ Deployment failed: ${error.message}`);
     // Restore development setup even if deployment fails
-    restoreDevelopmentSetup(config);
+    restoreDevelopmentSetup();
     process.exit(1);
   }
 }

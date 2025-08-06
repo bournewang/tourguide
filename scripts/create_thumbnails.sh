@@ -6,8 +6,10 @@
 set -e  # Exit on any error
 
 # Configuration
-IMAGES_DIR="assets/dengfeng/images"
-THUMBS_DIR="assets/dengfeng/thumb"
+PROVINCE_NAME=${PROVINCE_NAME:-henan}
+CITY_NAME=${CITY_NAME:-dengfeng}
+IMAGES_DIR="assets/$PROVINCE_NAME/$CITY_NAME/images"
+THUMBS_DIR="assets/$PROVINCE_NAME/$CITY_NAME/thumb"
 THUMB_SUFFIX=""  # No suffix needed since they're in separate directory
 THUMB_SIZE="300x200"  # Width x Height for thumbnails
 QUALITY=85           # JPEG quality (1-100)

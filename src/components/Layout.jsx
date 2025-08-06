@@ -3,10 +3,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTargetArea } from '../hooks/useTargetArea';
 import { getValidationStatus } from '../utils/validationStatus';
 
-const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdmin = false }) => {
+const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdmin: _isAdmin = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isDebugMode, currentTargetArea } = useTargetArea();
+  const { _isDebugMode, currentTargetArea } = useTargetArea();
   const [sessionStatus, setSessionStatus] = useState(null);
 
   // Update session status periodically

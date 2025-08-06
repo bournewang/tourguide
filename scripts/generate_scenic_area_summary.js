@@ -3,8 +3,11 @@
 import fs from 'fs';
 import path from 'path';
 
-const spotsDir = path.resolve('public/assets/data/spots');
-const outputFile = path.resolve('public/assets/data/scenic-area.json');
+const PROVINCE_NAME = process.env.PROVINCE_NAME || 'henan';
+const CITY_NAME = process.env.CITY_NAME || 'dengfeng';
+const baseDir = path.resolve('public/assets', PROVINCE_NAME, CITY_NAME, 'data');
+const spotsDir = path.join(baseDir, 'spots');
+const outputFile = path.join(baseDir, 'scenic-area.json');
 
 const files = fs.readdirSync(spotsDir).filter(f => f.endsWith('.json'));
 const summary = [];
