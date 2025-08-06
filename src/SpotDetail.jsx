@@ -1,32 +1,72 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useHowlerAudio } from './hooks/useHowlerAudio';
 import { dataService } from './utils/dataService';
+import { useCity } from './components/CityLayout';
+import { useTargetArea } from './hooks/useTargetArea';
 
 function SpotDetail() {
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Get spot data from location state or fallback
-  const spot = location.state?.spot || null;
+  const { spotId } = useParams();
+  const { cityId } = useCity();
+  const { currentTargetArea } = useTargetArea();
+
+  const [spot, setSpot] = useState(location.state?.spot || null);
+  const [loadingSpot, setLoadingSpot] = useState(!location.state?.spot);
   
   const [videoError, setVideoError] = useState(false);
   const [mediaType, setMediaType] = useState('video'); // 'video', 'imageSequence', or 'audio'
   const [showControls, setShowControls] = useState(false);
   const videoRef = useRef(null);
 
+  useEffect(() => {
+    const fetchSpot = async () => {
+      if (!spot && cityId && currentTargetArea) {
+        try {
+          console.log(`Fetching spot ${spotId} for area ${currentTargetArea.name} in city ${cityId}`);
+          const spots = await dataService.getSpotData(cityId, currentTargetArea.name);
+          const currentSpot = spots.find(s => s.name === spotId);
+          if (currentSpot) {
+            setSpot(currentSpot);
+          } else {
+            console.error('Spot not found');
+            navigate(`/city/${cityId}`, { replace: true });
+          }
+        } catch (error) {
+          console.error('Failed to fetch spot data:', error);
+          navigate(`/city/${cityId}`, { replace: true });
+        } finally {
+          setLoadingSpot(false);
+        }
+      }
+    };
+
+    if (!spot) {
+      fetchSpot();
+    }
+  }, [spot, spotId, cityId, currentTargetArea, navigate]);
+
+
   // If no spot data, redirect back to list
   useEffect(() => {
-    if (!spot) {
+    if (!spot && !loadingSpot) {
       console.warn('No spot data found, redirecting to list');
-      navigate('/', { replace: true });
+      navigate(`/city/${cityId}`, { replace: true });
     }
-  }, [spot, navigate]);
+  }, [spot, loadingSpot, navigate, cityId]);
 
   // Get media files directly from spot data
-  const audioFile = spot ? dataService.resolveAudioUrl(spot.audioFile) : null;
+  const audioFile = spot ? dataService.resolveAudioUrl(cityId, spot.audioFile) : null;
   const videoFile = spot?.videoFile ? `/video/${spot.videoFile}` : null;
   const imageSequence = spot?.imageSequence || null;
+  // convert imageSequence to full URLs
+  // const imageSequence = spot?.imageSequence.map(img => ({
+  //   ...img,
+  //   img: dataService.resolveImageUrl(cityId, img.img)
+  // })) || [];
+
+  console.log("imageSequence", imageSequence);
 
   // Use Howler hook for audio and image sequence
   const {
@@ -169,7 +209,7 @@ function SpotDetail() {
   }, [spot]);
 
   // Show loading if no spot data
-  if (!spot) {
+  if (loadingSpot || !spot) {
     return (
       <div className="min-h-full bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -194,7 +234,7 @@ function SpotDetail() {
             <video
               ref={videoRef}
               className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg bg-black"
-              poster={dataService.resolveImageUrl(spot.image)}
+              poster={dataService.resolveImageUrl(spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name)}
               onError={() => {
                 setVideoError(true);
               }}
@@ -206,7 +246,7 @@ function SpotDetail() {
           ) : hasImageSequence && mediaType === 'imageSequence' ? (
             <div className="relative">
               <img
-                src={dataService.resolveImageUrl(imageSequence[currentImageIndex]?.img || spot.image)}
+                src={dataService.resolveImageUrl(cityId, imageSequence[currentImageIndex]?.img || spot.image)}
                 alt={imageSequence[currentImageIndex]?.notes || spot.name}
                 className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg cursor-pointer transition-opacity duration-500"
                 onError={(e) => {
@@ -377,6 +417,7 @@ function SpotDetail() {
             </div>
           </div>
         )}
+
 
         {/* Description */}
         <div className="bg-white rounded-xl p-4 shadow-md mb-4">

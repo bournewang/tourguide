@@ -4,7 +4,7 @@ import { wgs84ToBaidu } from '../utils/coordinateUtils';
 import { dataService } from '../utils/dataService';
 import { isPointInBounds, getNearestArea, addPolygonBoundaries, calculateDistance } from '../utils/boundaryUtils';
 
-export const TargetAreaProvider = ({ children }) => {
+export const TargetAreaProvider = ({ children, cityId }) => {
   const [currentTargetArea, setCurrentTargetArea] = useState(null);
   const [scenicAreas, setScenicAreas] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
@@ -101,9 +101,10 @@ export const TargetAreaProvider = ({ children }) => {
   // Load scenic areas
   useEffect(() => {
     const loadScenicAreas = async () => {
+      if (!cityId) return;
       try {
-        console.log('TargetAreaContext: Loading visible scenic areas using dataService...');
-        const data = await dataService.getVisibleScenicAreas();
+        console.log(`TargetAreaContext: Loading visible scenic areas for ${cityId}...`);
+        const data = await dataService.getVisibleScenicAreas(cityId);
         console.log('TargetAreaContext: Loaded visible scenic areas:', data);
         
         // Add polygon boundaries to areas that don't have them
@@ -116,7 +117,7 @@ export const TargetAreaProvider = ({ children }) => {
       }
     };
     loadScenicAreas();
-  }, []);
+  }, [cityId]);
 
 
 
@@ -268,19 +269,10 @@ export const TargetAreaProvider = ({ children }) => {
 
   // Set default target area when scenic areas are loaded
   useEffect(() => {
-    // console.log('TargetAreaContext: scenicAreas.length:', scenicAreas.length, 'currentTargetArea:', currentTargetArea);
-    
     if (scenicAreas.length > 0 && !currentTargetArea) {
-      // Set Shaolin Temple as default target area
-      const shaolinArea = scenicAreas.find(area => area.name === '少林寺');
-      if (shaolinArea) {
-        console.log('TargetAreaContext: Setting default target area:', shaolinArea.name);
-        setCurrentTargetArea(shaolinArea);
-      } else {
-        // Fallback to first area if Shaolin not found
-        console.log('TargetAreaContext: Shaolin not found, setting default target area:', scenicAreas[0].name);
-        setCurrentTargetArea(scenicAreas[0]);
-      }
+      // Fallback to first area
+      console.log('TargetAreaContext: Setting default target area:', scenicAreas[0].name);
+      setCurrentTargetArea(scenicAreas[0]);
     }
   }, [scenicAreas, currentTargetArea]);
 

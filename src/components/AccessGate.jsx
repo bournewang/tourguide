@@ -95,7 +95,7 @@ const AccessGate = ({ children }) => {
       console.log('🔍 URL parameters:', { s, admin: adminParam });
       
       // Admin bypass for development
-      if (adminParam === '1') {
+      if (import.meta.env.DEV) {
         console.log('🔧 Admin bypass activated - skipping NFC validation');
         setValidationState('valid');
         setShowApp(true);

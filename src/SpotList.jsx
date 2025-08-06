@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
 import { calculateDistance, formatDistance } from './utils/coordinateUtils';
 import { ttsService } from './utils/ttsService';
-
+import { useCity } from './components/CityLayout';
 import { dataService } from './utils/dataService';
 
 function SpotList() {
   const navigate = useNavigate();
+  const { cityId } = useCity();
   const { currentTargetArea, userLocation, locationError, scenicAreas } = useTargetArea();
   const [spots, setSpots] = useState([]);
   const [spotsWithDistance, setSpotsWithDistance] = useState([]);
@@ -34,8 +35,8 @@ function SpotList() {
     const loadSpots = async () => {
       console.log('SpotList: loadSpots called, currentTargetArea:', currentTargetArea);
       
-      if (!currentTargetArea) {
-        console.log('SpotList: No currentTargetArea, staying in loading state');
+      if (!currentTargetArea || !cityId) {
+        console.log('SpotList: No currentTargetArea or cityId, staying in loading state');
         setLoading(true);
         return;
       }
@@ -46,7 +47,7 @@ function SpotList() {
         
         // Load spots from Cloudflare API
         try {
-          const spotsData = await ttsService.getSpotData(currentTargetArea.name);
+          const spotsData = await ttsService.getSpotData(cityId, currentTargetArea.name);
           console.log(`🎯 NORMAL MODE: Loaded ${spotsData.length} spots from Cloudflare for ${currentTargetArea.name}`);
           
           // Filter spots to only include those with tour guide content and display: "show"
@@ -79,7 +80,7 @@ function SpotList() {
     };
 
     loadSpots();
-  }, [currentTargetArea]);
+  }, [cityId, currentTargetArea]);
 
 
 
@@ -105,7 +106,7 @@ function SpotList() {
 
   const handleSpotClick = (spot) => {
     // Navigate to spot detail page with spot ID
-    navigate(`/spot/${encodeURIComponent(spot.name)}`, { 
+    navigate(`spot/${encodeURIComponent(spot.name)}`, { 
       state: { spot } // Pass spot data as state
     });
   };
@@ -209,7 +210,7 @@ function SpotList() {
                   onClick={() => handleSpotClick(spot)}
                 >
                   <img
-                    src={dataService.resolveThumbUrl(spot.thumbnail) || '/spot-default.jpg'}
+                    src={dataService.resolveThumbUrl(cityId, spot.thumbnail) || '/spot-default.jpg'}
                     alt={spot.name}
                     className="w-16 h-16 object-cover rounded-lg"
                     onError={(e) => {
@@ -222,9 +223,10 @@ function SpotList() {
                       {spot.distance !== null && (
                         <p className="text-sm text-blue-600 font-semibold">
                           📍 {formatDistance(spot.distance)}
-                          {/* {dataService.resolveThumbUrl(spot.thumbnail)} */}
+                          
                         </p>
                       )}
+                      {/* {dataService.resolveThumbUrl(cityId, spot.thumbnail)} */}
                     </div>
                   </div>
                   <div className="text-blue-500 text-xl font-bold">

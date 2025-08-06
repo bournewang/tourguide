@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from './hooks/useTargetArea';
 import { ttsService } from './utils/ttsService';
 import { isPointInBounds } from './utils/boundaryUtils';
+import { useCity } from './components/CityLayout';
 
 const MapView = () => {
   const navigate = useNavigate();
+  const { cityId } = useCity();
   const { currentTargetArea, userLocation } = useTargetArea();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -23,9 +25,9 @@ const MapView = () => {
 
   // Load spots for current target area only
   const loadSpots = async () => {
-    if (!currentTargetArea) {
-      console.log('No target area selected, redirecting to area selector');
-      navigate('/select-area');
+    if (!currentTargetArea || !cityId) {
+      console.log('No target area or cityId selected, redirecting to area selector');
+      navigate(`/city/${cityId}/select-area`);
       return;
     }
 
@@ -33,7 +35,7 @@ const MapView = () => {
       console.log('🗺️ MapView: Loading spots for current target area:', currentTargetArea.name);
       setLoading(true);
       
-      const areaSpots = await ttsService.getSpotData(currentTargetArea.name);
+      const areaSpots = await ttsService.getSpotData(cityId, currentTargetArea.name);
       
       // Filter spots by display field
       const visibleSpots = areaSpots.filter(spot => spot.display !== "hide");
@@ -78,7 +80,7 @@ const MapView = () => {
 
   const handleSpotClick = (spot) => {
     console.log('Spot clicked:', spot.name);
-    navigate(`/spot/${encodeURIComponent(spot.name)}`, {
+    navigate(`../spot/${encodeURIComponent(spot.name)}`, {
       state: { spot, areaName: currentTargetArea.name }
     });
   };
@@ -92,7 +94,7 @@ const MapView = () => {
   };
 
   const handleSelectArea = () => {
-    navigate('/select-area');
+    navigate('select-area');
   };
 
   // Load Baidu Map API and initialize map
@@ -474,11 +476,11 @@ const MapView = () => {
 
   // Redirect if no target area selected
   useEffect(() => {
-    if (!currentTargetArea) {
+    if (!currentTargetArea && cityId) {
       console.log('No target area selected, redirecting to area selector');
-      navigate('/select-area');
+      navigate(`/city/${cityId}/select-area`);
     }
-  }, [currentTargetArea, navigate]);
+  }, [currentTargetArea, navigate, cityId]);
 
   if (!currentTargetArea) {
     return (
@@ -607,7 +609,7 @@ const MapView = () => {
               ></div>
             </div>
             <span className="text-xs text-gray-600">
-              {isPointInBounds(userLocation, currentTargetArea) ? '在景区内' : '在景区外'}
+              {isPointInBounds(userLocation, currentTargetArea) ? '在景区���' : '在景区外'}
             </span>
           </div>
         </div>

@@ -1,5 +1,6 @@
 // Data service that switches between static files and API calls
 import { cacheService } from './cacheService';
+import locations from '../data/locations.json';
 
 // Environment detection
 const isDevelopment = import.meta.env.DEV;
@@ -9,63 +10,93 @@ const forceStatic = import.meta.env.VITE_USE_STATIC_DATA === 'true';
 // API configuration
 const API_BASE = import.meta.env.VITE_WORKER_URL || 'https://worker.qingfan.org';
 
-const DATA_PATH = '/assets/data';
+const DATA_PATH_PREFIX = '/assets';
 
 // Resource base URL for static assets
 const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_BASE_URL || '';
 
-// Static data paths (fixed for standalone city deployments)
-const getStaticPaths = () => ({
-  scenicAreas: `${RESOURCE_BASE_URL}${DATA_PATH}/scenic-area.json`
-});
+// Helper to find province for a city
+const getProvinceIdForCity = (cityId) => {
+  for (const province of locations) {
+    if (province.cities.some(city => city.id === cityId)) {
+      return province.province_id;
+    }
+  }
+  return null;
+};
+
+
+// Static data paths (now dynamic based on city and province)
+const getStaticPaths = (cityId) => {
+  const provinceId = getProvinceIdForCity(cityId);
+  if (!provinceId) {
+    console.error(`Could not find province for city: ${cityId}`);
+    return { scenicAreas: '', spotsBasePath: '', assetsBasePath: '' };
+  }
+  const assetsBasePath = `${RESOURCE_BASE_URL}${DATA_PATH_PREFIX}/${provinceId}/${cityId}`;
+  return {
+    scenicAreas: `${assetsBasePath}/data/scenic-area.json`,
+    spotsBasePath: `${assetsBasePath}/data/`,
+    assetsBasePath: assetsBasePath
+  };
+};
+
+// Centralized function to resolve any asset path
+const resolveAssetPath = (cityId, relativePath) => {
+  if (!relativePath) return null;
+  if (relativePath.startsWith('http')) return relativePath;
+
+  const { assetsBasePath } = getStaticPaths(cityId);
+  if (!assetsBasePath) return null;
+
+  // Ensure we don't have double slashes
+  return relativePath.startsWith('/') 
+    ? `${assetsBasePath}${relativePath}` 
+    : `${assetsBasePath}/${relativePath}`;
+};
+
 
 // Cache for scenic areas data to avoid repeated fetches
-let _scenicAreasCache = null;
+const _scenicAreasCache = {};
 
 // Determine data source based on environment
 export const getDataSource = () => {
-  if (isDevelopment) {
-    //console.log('🔧 Using API data (development mode)');
-    return 'api';
-  }
+  // if (isDevelopment) {
+  //   return 'api';
+  // }
     
   if (forceStatic) {
-    //console.log('🗂️ Using STATIC data (forced by VITE_USE_STATIC_DATA)');
     return 'static';
   }
   
   if (isProduction) {
-    //console.log('🗂️ Using STATIC data (production mode)');
     return 'static';
   }
   
-  //console.log('🗂️ Using STATIC data (fallback)');
   return 'static';
 };
 
 // Data service with dual mode support
 export const dataService = {
-  // Get scenic areas data
-  async getScenicAreas() {
-    console.log('----------- getScenicAreas');
-    const dataSource = getDataSource();
-    const cacheKey = 'scenic_areas';
-    
-    // Try cache first (for fetched boundaries)
-    const fetchedBoundariesData = cacheService.get('scenic_areas_fetched');
-    if (fetchedBoundariesData) {
-      console.log('📋 Using scenic areas from cache (fetched boundaries):', fetchedBoundariesData.length, 'areas');
-      // Update in-memory cache as well
-      _scenicAreasCache = fetchedBoundariesData;
-      return fetchedBoundariesData;
+  // Get scenic areas data for a specific city
+  async getScenicAreas(cityId) {
+    console.log(`----------- getScenicAreas for ${cityId}`);
+    if (!cityId) {
+      throw new Error('cityId is required to get scenic areas');
     }
+
+    const dataSource = getDataSource();
+    const cacheKey = `scenic_areas_${cityId}`;
     
-    // Try cache first
+    // Try in-memory cache first
+    if (_scenicAreasCache[cityId]) {
+      return _scenicAreasCache[cityId];
+    }
+
+    // Try persistent cache next
     const cachedData = cacheService.get(cacheKey);
     if (cachedData) {
-      //console.log(`📋 Using cached scenic areas data (${dataSource})`);
-      // Update in-memory cache as well
-      _scenicAreasCache = cachedData;
+      _scenicAreasCache[cityId] = cachedData;
       return cachedData;
     }
     
@@ -73,30 +104,26 @@ export const dataService = {
       let areaData;
       
       if (dataSource === 'static') {
-        //console.log('🗂️ Fetching scenic areas from static file...');
-        const response = await fetch(getStaticPaths().scenicAreas);
+        const staticPaths = getStaticPaths(cityId);
+        if (!staticPaths.scenicAreas) throw new Error(`Could not determine path for ${cityId}`);
+        
+        const response = await fetch(staticPaths.scenicAreas);
         
         if (!response.ok) {
-          throw new Error(`Static file error (${response.status}): ${response.statusText}`);
+          throw new Error(`Static file error (${response.status}): ${response.statusText} for ${staticPaths.scenicAreas}`);
         }
         
         const rawData = await response.json();
         
-        // Handle different data formats
         if (rawData.scenicAreas && Array.isArray(rawData.scenicAreas)) {
-          // New city structure format: { scenicAreas: [...] }
           areaData = rawData.scenicAreas;
-          //console.log('✅ Static scenic areas loaded successfully from new city structure');
         } else if (Array.isArray(rawData)) {
-          // Current format: direct array
           areaData = rawData;
-          //console.log('✅ Static scenic areas loaded successfully from direct array');
         } else {
           throw new Error(`Unknown scenic areas data format: ${typeof rawData}`);
         }
       } else {
-        //console.log('🌐 Fetching scenic areas from API...');
-        const response = await fetch(`${API_BASE}/api/scenic-areas`);
+        const response = await fetch(`${API_BASE}/api/scenic-areas?city=${cityId}`);
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
@@ -104,66 +131,38 @@ export const dataService = {
         }
         
         areaData = await response.json();
-        //console.log('✅ API scenic areas loaded successfully');
       }
       
-      // Ensure each area has a display field (default to 'show' if not present)
       areaData = areaData.map(area => ({
         ...area,
         display: area.display || 'show'
       }));
       
-      // Cache the result
       cacheService.set(cacheKey, areaData);
-      //console.log(`💾 Scenic areas cached successfully (${dataSource})`);
-      
-      // Update in-memory cache as well
-      _scenicAreasCache = areaData;
+      _scenicAreasCache[cityId] = areaData;
       
       return areaData;
     } catch (error) {
-      //console.error(`Failed to get scenic areas (${dataSource}):`, error);
-      throw new Error(`Failed to get scenic areas: ${error.message}`);
+      throw new Error(`Failed to get scenic areas for ${cityId}: ${error.message}`);
     }
   },
 
   // Get visible scenic areas (filtered by display status)
-  async getVisibleScenicAreas() {
-    const allAreas = await this.getScenicAreas();
+  async getVisibleScenicAreas(cityId) {
+    const allAreas = await this.getScenicAreas(cityId);
     return allAreas.filter(area => area.display !== 'hide');
   },
 
-  // Convert resolved URL back to relative path for storage
-  getRelativePath(resolvedUrl) {
-    if (!resolvedUrl) return '';
-    
-    console.log('Converting to relative path:', { resolvedUrl, RESOURCE_BASE_URL });
-    
-    // If it's already a relative path, return as is
-    if (!resolvedUrl.startsWith('http')) {
-      return resolvedUrl;
+  // Get spot data for a specific area in a specific city
+  async getSpotData(cityId, areaName) {
+    if (!cityId) {
+      throw new Error('cityId is required to get spot data');
     }
-    
-    // Remove the resource base URL prefix
-    if (RESOURCE_BASE_URL && resolvedUrl.startsWith(RESOURCE_BASE_URL)) {
-      const relativePath = resolvedUrl.substring(RESOURCE_BASE_URL.length);
-      // Remove leading slash if present
-      return relativePath.startsWith('/') ? relativePath.substring(1) : relativePath;
-    }
-    
-    // If no resource base URL or doesn't match, return the original
-    return resolvedUrl;
-  },
-
-  // Get spot data for a specific area
-  async getSpotData(areaName) {
     const dataSource = getDataSource();
-    const cacheKey = `spots_${areaName}`;
+    const cacheKey = `spots_${cityId}_${areaName}`;
     
-    // Try cache first
     const cachedData = cacheService.get(cacheKey);
     if (cachedData) {
-      //console.log(`📋 Using cached spot data for ${areaName} (${dataSource})`);
       return cachedData;
     }
     
@@ -171,19 +170,14 @@ export const dataService = {
       let spotData;
       
       if (dataSource === 'static') {
-        //console.log(`🗂️ Fetching spot data for ${areaName} from static file...`);
-        
-        // Get spotfile path from scenic areas data
-        const scenicAreas = await dataService.getScenicAreas();
-        //console.log('scenicAreas', scenicAreas);
+        const scenicAreas = await dataService.getScenicAreas(cityId);
         const area = scenicAreas.find(area => area.name === areaName);
         if (!area) {
-          throw new Error(`Area ${areaName} not found in scenic areas data`);
+          throw new Error(`Area ${areaName} not found in scenic areas data for ${cityId}`);
         }
         
-        // For Kaifeng data, the spots files are in directory
-        const spotFilePath = `${RESOURCE_BASE_URL}${DATA_PATH}/${area.spotsFile}`;
-        //console.log('spotFilePath', spotFilePath);
+        const staticPaths = getStaticPaths(cityId);
+        const spotFilePath = `${staticPaths.spotsBasePath}${area.spotsFile}`;
         
         const response = await fetch(spotFilePath);
         
@@ -192,29 +186,18 @@ export const dataService = {
         }
         
         const rawData = await response.json();
-        //console.log(`✅ Static spot data loaded successfully from ${spotFilePath}`);
         
-        // Handle different data structures
         if (rawData.spots && Array.isArray(rawData.spots)) {
-          // New city structure format: { scenicAreaId: "...", spots: [...] }
           spotData = rawData.spots;
-          //console.log(`📋 Extracted ${spotData.length} spots from new city structure`);
         } else if (rawData.results && Array.isArray(rawData.results)) {
-          // Kaifeng format: { results: [...] }
           spotData = rawData.results;
-          //console.log(`📋 Extracted ${spotData.length} spots from results array`);
         } else if (Array.isArray(rawData)) {
-          // Direct array format
           spotData = rawData;
-          //console.log(`📋 Using direct array with ${spotData.length} spots`);
         } else {
           throw new Error(`Unknown spot data format: ${typeof rawData}`);
         }
-        
-        // Audio URLs remain as-is (/audio/xxx.mp3 format)
       } else {
-        //console.log(`🌐 Fetching spot data for ${areaName} from API...`);
-        const response = await fetch(`${API_BASE}/api/spots?area=${encodeURIComponent(areaName)}`);
+        const response = await fetch(`${API_BASE}/api/spots?city=${cityId}&area=${encodeURIComponent(areaName)}`);
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
@@ -222,136 +205,60 @@ export const dataService = {
         }
         
         spotData = await response.json();
-        //console.log('✅ API spot data loaded successfully');
-        
-        // Audio URLs remain as-is (/audio/xxx.mp3 format)
       }
       
-      // Cache the result
       cacheService.set(cacheKey, spotData);
-      //console.log(`💾 Spot data for ${areaName} cached successfully (${dataSource})`);
         
       return spotData;
     } catch (error) {
-      //console.error(`Failed to get spot data for ${areaName} (${dataSource}):`, error);
-      throw new Error(`Failed to get spot data: ${error.message}`);
+      throw new Error(`Failed to get spot data for ${areaName}: ${error.message}`);
     }
   },
 
-  // Check if we're in API mode (for features that require API)
   isApiMode() {
     return getDataSource() === 'api';
   },
 
-  // Get current data source
   getCurrentDataSource() {
     return getDataSource();
   },
 
-  // Clear cache (useful for development)
   clearCache() {
     cacheService.clear();
-    // Also clear in-memory cache
-    _scenicAreasCache = null;
+    Object.keys(_scenicAreasCache).forEach(key => delete _scenicAreasCache[key]);
   },
 
-  // Get cache status
   getCacheStatus() {
     return cacheService.getStatus();
   },
 
-  // Resolve audio URL based on current mode
-  resolveAudioUrl(audioFile) {
-    if (!audioFile) return null;
-    
-    const dataSource = getDataSource();
-    
-    // In development/API mode, prepend worker base URL + /api
-    if (dataSource === 'api') {
-      // audioFile is like "/audio/filename.mp3", we need "https://worker.qingfan.org/api/audio/filename.mp3"
-      if (audioFile.startsWith('/audio/')) {
-        return `${API_BASE}/assets${audioFile}`;
-      }
-    }
-    
-    // In static/production mode, use RESOURCE_BASE_URL
-    if (dataSource === 'static') {
-      if (audioFile.startsWith('/')) {
-        return `${RESOURCE_BASE_URL}${audioFile}`;
-      }
-    }
-    
-    // In static/production mode, use as-is (served from public/audio/)
-    return audioFile;
+  resolveAudioUrl(cityId, audioFile) {
+    return resolveAssetPath(cityId, audioFile);
   },
 
-  // Resolve image URL based on current mode
-  resolveImageUrl(imagePath) {
-    if (!imagePath) return null;
-    
-    console.log('Resolving image URL:', { imagePath, RESOURCE_BASE_URL, dataSource: getDataSource() });
-    
-    // const dataSource = getDataSource();
-    // if (dataSource === 'static') {
-      // If it's already a full URL, return as is
-      if (imagePath.startsWith('http')) {
-        console.log('Already a full URL, returning as is');
-        return imagePath;
-      }
-      
-      // If it starts with /, prepend RESOURCE_BASE_URL
-      if (imagePath.startsWith('/')) {
-        const resolvedUrl = `${RESOURCE_BASE_URL}${imagePath}`;
-        console.log('Resolved URL (starts with /):', resolvedUrl);
-        return resolvedUrl;
-      }
-      
-      // If it doesn't start with /, assume it's a relative path and prepend RESOURCE_BASE_URL + /
-      if (RESOURCE_BASE_URL) {
-        const resolvedUrl = `${RESOURCE_BASE_URL}/${imagePath}`;
-        console.log('Resolved URL (relative path):', resolvedUrl);
-        return resolvedUrl;
-      }
-    // }
-    
-    console.log('Returning original path (not static mode or no RESOURCE_BASE_URL):', imagePath);
-    return imagePath;
+  resolveImageUrl(cityId, imagePath) {
+    return resolveAssetPath(cityId, imagePath);
   },
 
-  // Resolve thumb URL based on current mode
-  resolveThumbUrl(thumbPath) {
-    if (!thumbPath) return null;
-    // const dataSource = getDataSource();
-    // if (dataSource === 'static') {
-      if (thumbPath.startsWith('/')) {
-        return `${RESOURCE_BASE_URL}${thumbPath}`;
-      }
-    // }
-    return thumbPath;
+  resolveThumbUrl(cityId, thumbPath) {
+    return resolveAssetPath(cityId, thumbPath);
   },
 
-  // Update scenic areas data (for fetched boundaries)
-  updateScenicAreas(updatedAreas) {
-    const success = cacheService.set('scenic_areas_fetched', updatedAreas);
+  updateScenicAreas(cityId, updatedAreas) {
+    const cacheKey = `scenic_areas_fetched_${cityId}`;
+    const success = cacheService.set(cacheKey, updatedAreas);
     if (success) {
-      console.log('💾 Updated scenic areas in cache:', updatedAreas.length, 'areas');
-      
-      // Also update in-memory cache
-      _scenicAreasCache = updatedAreas;
-    } else {
-      console.error('Failed to update scenic areas in cache');
+      _scenicAreasCache[cityId] = updatedAreas;
     }
     return success;
   },
 
-  // Clear fetched scenic areas (restore original)
-  clearFetchedScenicAreas() {
-    cacheService.clear('scenic_areas_fetched');
-    console.log('🗑️ Cleared fetched scenic areas from cache');
-    
-    // Clear in-memory cache to force reload from original source
-    _scenicAreasCache = null;
-    
+  clearFetchedScenicAreas(cityId) {
+    const cacheKey = `scenic_areas_fetched_${cityId}`;
+    cacheService.clear(cacheKey);
+    if (_scenicAreasCache[cityId]) {
+      delete _scenicAreasCache[cityId];
+    }
     return true;
   }
 };

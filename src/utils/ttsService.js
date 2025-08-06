@@ -159,13 +159,13 @@ export const ttsService = {
   },
 
   // Get spot data - Uses dataService for dual mode support
-  async getSpotData(areaName) {
-    return dataService.getSpotData(areaName);
+  async getSpotData(cityId, areaName) {
+    return dataService.getSpotData(cityId, areaName);
   },
 
   // Get scenic areas - Uses dataService for dual mode support
-  async getScenicAreas() {
-    return dataService.getScenicAreas();
+  async getScenicAreas(cityId) {
+    return dataService.getScenicAreas(cityId);
   },
 
   // Update spot data - Only available in API mode

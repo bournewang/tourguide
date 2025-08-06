@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTargetArea } from '../hooks/useTargetArea';
 import { dataService } from '../utils/dataService';
+import { useCity } from '../components/CityLayout';
 
 const ScenicAreaSelector = () => {
   const navigate = useNavigate();
+  const { cityId } = useCity();
   const { setTargetArea, currentTargetArea, isAutoSelectionEnabled, toggleAutoSelection } = useTargetArea();
   const [scenicAreas, setScenicAreas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,9 +15,14 @@ const ScenicAreaSelector = () => {
   // Load visible scenic areas
   useEffect(() => {
     const loadScenicAreas = async () => {
+      if (!cityId) {
+        setLoading(false);
+        setError('City not selected');
+        return;
+      }
       try {
         setLoading(true);
-        const areas = await dataService.getVisibleScenicAreas();
+        const areas = await dataService.getVisibleScenicAreas(cityId);
         // filter visible areas
         const visibleAreas = areas.filter(area => area.display === 'show');
         setScenicAreas(visibleAreas);
@@ -29,12 +36,12 @@ const ScenicAreaSelector = () => {
     };
 
     loadScenicAreas();
-  }, []);
+  }, [cityId]);
 
   const handleAreaSelect = (area) => {
     console.log('🎯 Selected area:', area.name);
     setTargetArea(area);
-    navigate('/map');
+    navigate(`/city/${cityId}/map`);
   };
 
 

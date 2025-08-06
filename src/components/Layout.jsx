@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useTargetArea } from '../hooks/useTargetArea';
 import { getValidationStatus } from '../utils/validationStatus';
+import { useCity } from './CityLayout';
 
 const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdmin = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { cityId } = useCity() || {};
   const { isDebugMode, currentTargetArea } = useTargetArea();
   const [sessionStatus, setSessionStatus] = useState(null);
 
@@ -38,15 +40,23 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
   }, []);
 
   const handleBack = () => {
-    navigate('/');
+    if (cityId) {
+      navigate(`/city/${cityId}`);
+    } else {
+      navigate('/');
+    }
   };
 
   const handleNavigate = (path) => {
-    navigate(path);
+    if (cityId) {
+      navigate(`/city/${cityId}${path}`);
+    } else {
+      navigate(path);
+    }
   };
 
   const isActive = (path) => {
-    return location.pathname === path;
+    return location.pathname === `/city/${cityId}${path}`;
   };
 
   return (
