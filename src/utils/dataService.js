@@ -26,6 +26,8 @@ const getProvinceIdForCity = (cityId) => {
 };
 
 
+
+
 // Static data paths (now dynamic based on city and province)
 const getStaticPaths = (cityId) => {
   const provinceId = getProvinceIdForCity(cityId);
@@ -153,8 +155,34 @@ export const dataService = {
     return allAreas.filter(area => area.display !== 'hide');
   },
 
+  async updateScenicArea(cityId, areaName, spotData) {
+    if (!cityId) {
+      throw new Error('cityId is required to get spot data');
+    }
+    // const dataSource = getDataSource();
+    const cacheKey = `spots_${cityId}_${areaName}`;
+    console.log(`Updating spot data for ${areaName} in ${cityId}, key`, cacheKey);
+    
+    cacheService.set(cacheKey, spotData);
+  },
+
+  async updateSpotData(cityId, areaName, spotId, updatedData) {
+    if (!cityId || !areaName || !spotId) {
+      throw new Error('cityId, areaName and spotId are required to update spot data')
+    }
+    const cacheKey = `spots_${cityId}_${areaName}`;
+    const cachedData = cacheService.get(cacheKey);
+    if (!cachedData) {
+      throw new Error(`No cached data found for ${areaName} in ${cityId}`);
+    }
+    const updatedSpots = cachedData.map(spot => 
+      spot.name === spotId ? { ...spot, ...updatedData } : spot
+    );
+    cacheService.set(cacheKey, updatedSpots);
+  },
+
   // Get spot data for a specific area in a specific city
-  async getSpotData(cityId, areaName) {
+  async getScenicArea(cityId, areaName) {
     if (!cityId) {
       throw new Error('cityId is required to get spot data');
     }

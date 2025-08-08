@@ -117,7 +117,7 @@ export const ttsService = {
 
   // Generate narration using QWen AI - Only available in API mode
   async generateNarration(spotInfo, customPrompt = '') {
-    if (!dataService.isApiMode()) {
+    if (!import.meta.env.DEV) {
       throw new Error('AI narration generation is only available in development mode');
     }
 
@@ -159,8 +159,8 @@ export const ttsService = {
   },
 
   // Get spot data - Uses dataService for dual mode support
-  async getSpotData(cityId, areaName) {
-    return dataService.getSpotData(cityId, areaName);
+  async getScenicArea(cityId, areaName) {
+    return dataService.getScenicArea(cityId, areaName);
   },
 
   // Get scenic areas - Uses dataService for dual mode support

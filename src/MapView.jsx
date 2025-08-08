@@ -35,7 +35,7 @@ const MapView = () => {
       console.log('🗺️ MapView: Loading spots for current target area:', currentTargetArea.name);
       setLoading(true);
       
-      const areaSpots = await ttsService.getSpotData(cityId, currentTargetArea.name);
+      const areaSpots = await ttsService.getScenicArea(cityId, currentTargetArea.name);
       
       // Filter spots by display field
       const visibleSpots = areaSpots.filter(spot => spot.display !== "hide");

@@ -41,7 +41,7 @@ const ScenicAreaSelector = () => {
   const handleAreaSelect = (area) => {
     console.log('🎯 Selected area:', area.name);
     setTargetArea(area);
-    navigate(`/city/${cityId}/map`);
+    navigate(`/city/${cityId}`);
   };
 
 

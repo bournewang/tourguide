@@ -149,7 +149,7 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
             </button>
 
             {/* Boundaries Button - Only show in debug mode AND development */}
-            {import.meta.env.DEV && (
+            {/* {import.meta.env.DEV && (
               <button
                 onClick={() => handleNavigate('/boundaries')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
@@ -163,7 +163,7 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
                 </svg>
                 <span className="text-xs">管理</span>
               </button>
-            )}
+            )} */}
 
             {/* Editor Mode Button - Only show in admin mode AND development */}
             {import.meta.env.DEV && (

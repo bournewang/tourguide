@@ -47,7 +47,7 @@ function SpotList() {
         
         // Load spots from Cloudflare API
         try {
-          const spotsData = await ttsService.getSpotData(cityId, currentTargetArea.name);
+          const spotsData = await ttsService.getScenicArea(cityId, currentTargetArea.name);
           console.log(`🎯 NORMAL MODE: Loaded ${spotsData.length} spots from Cloudflare for ${currentTargetArea.name}`);
           
           // Filter spots to only include those with tour guide content and display: "show"
@@ -130,19 +130,19 @@ function SpotList() {
   }
 
   // Show error if scenic areas loaded but no target area set
-  if (!currentTargetArea && scenicAreas.length > 0) {
-    return (
-      <div className="min-h-full bg-gray-50 py-4">
-        <div className="max-w-3xl mx-auto px-4">
-          <div className="text-center py-8">
-            <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">无法确定当前景区，请手动选择景区</h2>
-            <p className="text-gray-600 mb-4">系统已加载 {scenicAreas.length} 个景区，但未能自动选择当前景区，请手动选择景区</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // if (!currentTargetArea && scenicAreas.length > 0) {
+  //   return (
+  //     <div className="min-h-full bg-gray-50 py-4">
+  //       <div className="max-w-3xl mx-auto px-4">
+  //         <div className="text-center py-8">
+  //           <div className="text-red-500 text-6xl mb-4">⚠️</div>
+  //           <h2 className="text-xl font-bold text-gray-800 mb-2">无法确定当前景区，请手动选择景区</h2>
+  //           <p className="text-gray-600 mb-4">系统已加载 {scenicAreas.length} 个景区，但未能自动选择当前景区，请手动选择景区</p>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="flex flex-col min-h-full bg-gray-50">
@@ -178,7 +178,7 @@ function SpotList() {
           )} */}
           
           {/* Location status */}
-          {locationError ? (
+          {/* {locationError ? (
             <div className="bg-red-50 rounded-xl p-3 mb-4 text-center shadow-sm">
               <p className="text-sm text-red-600 mb-2">
                 📍 无法获取位置，{locationError}，请手动选择景区
@@ -198,7 +198,7 @@ function SpotList() {
                 ⏳ 正在获取您的位置，请稍候...
               </p>
             </div>
-          )}
+          )} */}
           
           {/* Spots List */}
           <div className="space-y-3">

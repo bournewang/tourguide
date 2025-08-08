@@ -79,7 +79,7 @@ const BoundaryView = () => {
       
       for (const area of scenicAreas) {
         try {
-          const areaSpots = await ttsService.getSpotData(area.name);
+          const areaSpots = await ttsService.getScenicArea(area.name);
           
           // Filter spots by display field for map display
           const visibleAreaSpots = areaSpots.filter(spot => spot.display !== "hide");

@@ -25,7 +25,7 @@ function SpotDetail() {
       if (!spot && cityId && currentTargetArea) {
         try {
           console.log(`Fetching spot ${spotId} for area ${currentTargetArea.name} in city ${cityId}`);
-          const spots = await dataService.getSpotData(cityId, currentTargetArea.name);
+          const spots = await dataService.getScenicArea(cityId, currentTargetArea.name);
           const currentSpot = spots.find(s => s.name === spotId);
           if (currentSpot) {
             setSpot(currentSpot);
@@ -58,8 +58,8 @@ function SpotDetail() {
 
   // Get media files directly from spot data
   const audioFile = spot ? dataService.resolveAudioUrl(cityId, spot.audioFile) : null;
-  const videoFile = spot?.videoFile ? `/video/${spot.videoFile}` : null;
-  const imageSequence = spot?.imageSequence || null;
+  const videoFile = spot?.videoFile ? dataService.resolveImageUrl(cityId, spot.videoFile) : null;
+  const imageSequence = spot?.imageSequence ? spot.imageSequence.map(img => ({...img, img: dataService.resolveImageUrl(cityId, img.img)})) : null;
   // convert imageSequence to full URLs
   // const imageSequence = spot?.imageSequence.map(img => ({
   //   ...img,
@@ -234,7 +234,7 @@ function SpotDetail() {
             <video
               ref={videoRef}
               className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg bg-black"
-              poster={dataService.resolveImageUrl(spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name)}
+              poster={dataService.resolveImageUrl(cityId, spot.image)}
               onError={() => {
                 setVideoError(true);
               }}
@@ -246,11 +246,11 @@ function SpotDetail() {
           ) : hasImageSequence && mediaType === 'imageSequence' ? (
             <div className="relative">
               <img
-                src={dataService.resolveImageUrl(cityId, imageSequence[currentImageIndex]?.img || spot.image)}
+                src={imageSequence[currentImageIndex]?.img || dataService.resolveImageUrl(cityId, spot.image)}
                 alt={imageSequence[currentImageIndex]?.notes || spot.name}
                 className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg cursor-pointer transition-opacity duration-500"
                 onError={(e) => {
-                  e.target.src = dataService.resolveImageUrl(spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name);
+                  e.target.src = dataService.resolveImageUrl(cityId, spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name);
                 }}
                 onClick={toggleMedia}
               />
@@ -270,7 +270,7 @@ function SpotDetail() {
             </div>
           ) : (
             <img
-              src={dataService.resolveImageUrl(spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name)}
+              src={dataService.resolveImageUrl(cityId, spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name)}
               alt={spot.name}
               className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg cursor-pointer"
               onClick={toggleMedia}

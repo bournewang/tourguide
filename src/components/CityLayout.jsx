@@ -1,12 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import Layout from './Layout';
 
 const CityContext = createContext(null);
 
 export const useCity = () => useContext(CityContext);
 
-const CityLayout = ({ children, ...props }) => {
+const CityLayout = ({ children }) => {
   const { cityId } = useParams();
   const [cityData, setCityData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,12 +14,12 @@ const CityLayout = ({ children, ...props }) => {
     const fetchCityData = async () => {
       try {
         setLoading(true);
+        // Dynamically import the city's JSON configuration file
         const data = await import(`../../cities/${cityId}.json`);
-        console.log('City data loaded:', data);
         setCityData(data);
       } catch (error) {
-        console.error('Failed to load city data:', error);
-        // Handle error, e.g., show a not found page
+        console.error('Failed to load city config data:', error);
+        // Handle error, e.g., show a not found page or redirect
       } finally {
         setLoading(false);
       }
@@ -32,16 +31,16 @@ const CityLayout = ({ children, ...props }) => {
   }, [cityId]);
 
   if (loading) {
-    return <div className="p-8 text-center">Loading city data...</div>;
+    return <div className="p-8 text-center">Loading city...</div>;
   }
 
   if (!cityData) {
-    return <div className="p-8 text-center">City not found.</div>;
+    return <div className="p-8 text-center">City configuration not found.</div>;
   }
 
   return (
     <CityContext.Provider value={{ cityId, cityData }}>
-      <Layout {...props}>{children}</Layout>
+      {children}
     </CityContext.Provider>
   );
 };

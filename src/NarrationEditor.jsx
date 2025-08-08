@@ -4,6 +4,7 @@ import { useTTSService } from './hooks/useTTSService';
 import ImageSequenceTimeline from './components/ImageSequenceTimeline';
 import { ttsService } from './utils/ttsService';
 import { dataService } from './utils/dataService';
+import { useCity } from './components/CityLayout';
 
 function NarrationEditor() {
   // State management
@@ -12,6 +13,7 @@ function NarrationEditor() {
   const [spots, setSpots] = useState([]);
   const [selectedSpot, setSelectedSpot] = useState(null);
   const [narrationText, setNarrationText] = useState('');
+  const { cityId } = useCity();
   
   // Local editing state - separate from spot data until save
   const [localImageSequence, setLocalImageSequence] = useState([]);
@@ -135,7 +137,7 @@ function NarrationEditor() {
   // Load scenic areas data
   const loadScenicAreas = async () => {
     try {
-      const result = await ttsService.getScenicAreas();
+      const result = await ttsService.getScenicAreas(cityId);
       setScenicAreas(result);
       if (result.length > 0) {
         setSelectedArea(result[0]);
@@ -151,7 +153,7 @@ function NarrationEditor() {
     if (!selectedArea) return;
     
     try {
-      const result = await ttsService.getSpotData(selectedArea.name);
+      const result = await ttsService.getScenicArea(cityId, selectedArea.name);
       setSpots(result);
       if (result.length > 0) {
         const firstSpot = result[0];
@@ -480,8 +482,13 @@ function NarrationEditor() {
     };
 
     try {
+
+    // try {
+      // update spot data in localstorage
+      dataService.updateSpotData(cityId, selectedArea.name, updatedSpot);
+
       // Save to Cloudflare KV storage with all updates
-      await ttsService.updateSingleSpot(selectedArea.name, selectedSpot.name, updatePayload);
+      // await ttsService.updateSingleSpot(selectedArea.name, selectedSpot.name, updatePayload);
 
       // Update local state
       const updatedSpots = spots.map(spot => 
@@ -492,7 +499,7 @@ function NarrationEditor() {
       setSpots(updatedSpots);
       setSelectedSpot(updatedSpot);
       setLocalImageSequence(sortedImageSequence); // Update local state with sorted sequence
-              setLocalCoverImage(dataService.resolveImageUrl(updatedSpot.image_thumb)); // Update local cover image
+      setLocalCoverImage(dataService.resolveImageUrl(updatedSpot.image_thumb)); // Update local cover image
       setLocalAudioInfo(null); // Clear local audio info after successful save
       setHasLocalChanges(false); // Clear local changes after successful save
       setIsDirty(false);
@@ -531,7 +538,10 @@ function NarrationEditor() {
     setHasLocalChanges(true);
 
     try {
-      await ttsService.updateSingleSpot(selectedArea.name, spot.name, { display: newDisplay });
+      // update spot data in localstorage
+      dataService.updateScenicArea(cityId, selectedArea.name, updatedSpots);
+
+      // await ttsService.updateSingleSpot(selectedArea.name, spot.name, { display: newDisplay });
       console.log(`Spot "${spot.name}" display status updated to: ${newDisplay}`);
     } catch (error) {
       console.error(`Failed to update spot display status for ${spot.name}:`, error);

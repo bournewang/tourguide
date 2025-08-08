@@ -24,29 +24,23 @@ function CityAppLayout({ isAdmin }) {
     }
     
     return [
-      <Route key="boundaries" path="boundaries" element={
-        <Suspense fallback={<div className="p-8 text-center">Loading admin tools...</div>}>
-          <Layout title="管理" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
-            <BoundaryView />
-          </Layout>
-        </Suspense>
-      } />,
+      // <Route key="boundaries" path="boundaries" element={
+      //   <Suspense fallback={<div className="p-8 text-center">Loading admin tools...</div>}>
+      //     <Layout title="管理" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
+      //       <BoundaryView />
+      //     </Layout>
+      //   </Suspense>
+      // } />,
       <Route key="editor" path="editor" element={
-        <Suspense fallback={<div className="p-8 text-center">Loading admin tools...</div>}>
-          {isAdmin ? (
-            <Layout title="编辑模式" showBack={false} showBottomNav={false}>
-              <NarrationEditor />
-            </Layout>
-          ) : (
-            <Navigate to="/" replace />
-          )}
-        </Suspense>
+        <Layout title="编辑模式" showBack={false} showBottomNav={false}>
+          <NarrationEditor />
+        </Layout>
       } />,
-      <Route key="debug" path="debug" element={<Navigate to="boundaries" replace />} />,
+      // <Route key="debug" path="debug" element={<Navigate to="boundaries" replace />} />,
       <Route key="direction-debug" path="direction-debug" element={
-        <Suspense fallback={<div className="p-8 text-center">Loading admin tools...</div>}>
+        <Layout title="方向调试" showBack={false} showBottomNav={false}>
           <DirectionDebug />
-        </Suspense>
+        </Layout>
       } />
     ];
   };
@@ -82,6 +76,21 @@ function CityAppLayout({ isAdmin }) {
           
           {/* Admin routes - only available in development */}
           {getAdminRoutes()}
+          {import.meta.env.DEV && (
+            <>
+            <Route key="editor" path="editor" element={
+              <Layout title="编辑模式" showBack={false} showBottomNav={false}>
+                <NarrationEditor />
+              </Layout>
+            } />
+            {/* <Route key="debug" path="debug" element={<Navigate to="boundaries" replace />} />, */}
+            <Route key="direction-debug" path="direction-debug" element={
+              <Layout title="方向调试" showBack={false} showBottomNav={false}>
+                <DirectionDebug />
+              </Layout>
+            } />
+            </>
+          )}
           
           {/* Catch all - redirect to city home */}
           <Route path="*" element={<Navigate to="/" replace />} />
