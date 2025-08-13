@@ -9,7 +9,7 @@ import { dataService } from './utils/dataService';
 function SpotList() {
   const navigate = useNavigate();
   const { cityId } = useCity();
-  const { currentTargetArea, userLocation, locationError, scenicAreas } = useTargetArea();
+  const { currentTargetArea, userLocation, scenicAreas } = useTargetArea();
   const [spots, setSpots] = useState([]);
   const [spotsWithDistance, setSpotsWithDistance] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,14 +209,32 @@ function SpotList() {
                   className="bg-white rounded-xl p-4 flex items-center space-x-4 hover:shadow-lg cursor-pointer shadow-sm transition-all duration-200 hover:-translate-y-1"
                   onClick={() => handleSpotClick(spot)}
                 >
-                  <img
-                    src={dataService.resolveThumbUrl(cityId, spot.thumbnail) || '/spot-default.jpg'}
-                    alt={spot.name}
-                    className="w-16 h-16 object-cover rounded-lg"
-                    onError={(e) => {
-                      e.target.src = '/spot-default.jpg';
-                    }}
-                  />
+                  {(() => {
+                    const thumbUrl = dataService.resolveThumbUrl(cityId, spot.thumbnail);
+                    const sequenceThumb = spot.imageSequence && spot.imageSequence.length > 0
+                      ? dataService.resolveImageUrl(cityId, spot.imageSequence[0].img)
+                      : null;
+                    const hasImage = thumbUrl || sequenceThumb;
+                    if (hasImage) {
+                      return (
+                        <img
+                          src={thumbUrl || sequenceThumb}
+                          alt={spot.name}
+                          className="w-16 h-16 object-cover rounded-lg"
+                          onError={(e) => {
+                            e.target.src = '/spot-default.jpg';
+                          }}
+                        />
+                      );
+                    }
+                    return (
+                      <div className="w-16 h-16 flex items-center justify-center bg-gray-200 rounded-lg">
+                        <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                    );
+                  })()}
                   <div className="flex-1">
                     <h3 className="text-lg font-bold text-gray-900 mb-1">{spot.name}</h3>
                     <div className="space-y-1">

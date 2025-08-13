@@ -89,10 +89,19 @@ export const dataService = {
 
     const dataSource = getDataSource();
     const cacheKey = `scenic_areas_${cityId}`;
+    const fetchedCacheKey = `scenic_areas_fetched_${cityId}`;
     
     // Try in-memory cache first
     if (_scenicAreasCache[cityId]) {
       return _scenicAreasCache[cityId];
+    }
+
+    // Try fetched boundaries cache first (most recent data)
+    const fetchedData = cacheService.get(fetchedCacheKey);
+    if (fetchedData) {
+      console.log(`✅ Found fetched boundaries for ${cityId}, using those`);
+      _scenicAreasCache[cityId] = fetchedData;
+      return fetchedData;
     }
 
     // Try persistent cache next

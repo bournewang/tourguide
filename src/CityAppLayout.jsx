@@ -14,7 +14,8 @@ const isDevelopment = import.meta.env.DEV;
 const BoundaryView = isDevelopment ? lazy(() => import('./BoundaryView')) : null;
 const NarrationEditor = isDevelopment ? lazy(() => import('./NarrationEditor')) : null;
 const DirectionDebug = isDevelopment ? lazy(() => import('./DirectionDebug')) : null;
-
+const adminMode = import.meta.env.VITE_ADMIN_MODE === 'true';
+console.log("adminMode", adminMode);
 // Main App Layout Component for a selected city
 function CityAppLayout({ isAdmin }) {
   // Create admin routes only in development
@@ -24,13 +25,13 @@ function CityAppLayout({ isAdmin }) {
     }
     
     return [
-      // <Route key="boundaries" path="boundaries" element={
-      //   <Suspense fallback={<div className="p-8 text-center">Loading admin tools...</div>}>
-      //     <Layout title="管理" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
-      //       <BoundaryView />
-      //     </Layout>
-      //   </Suspense>
-      // } />,
+      <Route key="boundaries" path="boundaries" element={
+        <Suspense fallback={<div className="p-8 text-center">Loading admin tools...</div>}>
+          <Layout title="管理" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
+            <BoundaryView />
+          </Layout>
+        </Suspense>
+      } />,
       <Route key="editor" path="editor" element={
         <Layout title="编辑模式" showBack={false} showBottomNav={false}>
           <NarrationEditor />
@@ -76,7 +77,7 @@ function CityAppLayout({ isAdmin }) {
           
           {/* Admin routes - only available in development */}
           {getAdminRoutes()}
-          {import.meta.env.DEV && (
+          {import.meta.env.DEV && adminMode && (
             <>
             <Route key="editor" path="editor" element={
               <Layout title="编辑模式" showBack={false} showBottomNav={false}>

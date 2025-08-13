@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTargetArea } from './hooks/useTargetArea';
+import { useCity } from './components/CityLayout';
 import { ttsService } from './utils/ttsService';
 import { dataService } from './utils/dataService';
 import { isPointInBounds, calculateDistance, formatDistance } from './utils/boundaryUtils';
 import { wgs84ToBaidu } from './utils/coordinateUtils';
 
-const BoundaryView = () => {
+export const BoundaryView = () => {
+  const { cityId } = useCity();
+  const { cityData } = useCity();
   const { 
     currentTargetArea: globalCurrentTargetArea, 
     setTargetArea, 
@@ -55,7 +58,12 @@ const BoundaryView = () => {
 
   const loadScenicAreas = async () => {
     try {
-      const data = await ttsService.getScenicAreas();
+      if (!cityId) {
+        throw new Error('City ID is required to load scenic areas');
+      }
+      console.log('🔄 BoundaryView: Loading scenic areas for city:', cityId);
+      const data = await ttsService.getScenicAreas(cityId);
+      console.log('✅ BoundaryView: Loaded scenic areas:', data);
       setScenicAreas(data);
       setDisplayScenicAreas(data); // Initialize display data with original data
       
@@ -65,6 +73,7 @@ const BoundaryView = () => {
       
       setLoading(false);
     } catch (error) {
+      console.error('❌ BoundaryView: Failed to load scenic areas:', error);
       setError(`Failed to load scenic areas data: ${error.message}`);
       setLoading(false);
     }
@@ -72,24 +81,28 @@ const BoundaryView = () => {
 
   const loadSpots = async () => {
     try {
-      console.log('🗺️ DEBUG MODE: Loading ALL spots data for boundary view map');
+      if (!cityId) {
+        throw new Error('City ID is required to load spots data');
+      }
+      console.log('🗺️ BoundaryView: Loading ALL spots data for city:', cityId);
       const spotsData = {};
       let totalSpots = 0;
       let visibleSpots = 0;
       
       for (const area of scenicAreas) {
         try {
-          const areaSpots = await ttsService.getScenicArea(area.name);
+          console.log('🔄 BoundaryView: Loading spots for area:', area.name);
+          const areaSpots = await ttsService.getScenicArea(cityId, area.name);
           
           // Filter spots by display field for map display
           const visibleAreaSpots = areaSpots.filter(spot => spot.display !== "hide");
           
-          console.log(`📍 Loaded ${visibleAreaSpots.length}/${areaSpots.length} visible spots for ${area.name}`);
+          console.log(`📍 BoundaryView: Loaded ${visibleAreaSpots.length}/${areaSpots.length} visible spots for ${area.name}`);
           spotsData[area.name] = visibleAreaSpots;
           totalSpots += areaSpots.length;
           visibleSpots += visibleAreaSpots.length;
         } catch (error) {
-          console.warn(`Failed to load spots for ${area.name}:`, error);
+          console.warn(`⚠️ BoundaryView: Failed to load spots for ${area.name}:`, error);
           spotsData[area.name] = [];
         }
       }
@@ -97,18 +110,18 @@ const BoundaryView = () => {
       // Log a sample spot to check structure
       const sampleArea = Object.keys(spotsData)[0];
       if (sampleArea && spotsData[sampleArea].length > 0) {
-        console.log('Sample spot structure:', spotsData[sampleArea][0]);
+        console.log('📋 BoundaryView: Sample spot structure:', spotsData[sampleArea][0]);
       }
       
       setSpots(spotsData);
       setAllDataLoaded(true); // Mark all data as loaded
-      console.log(`🎉 DEBUG MODE: All data loaded successfully! ${visibleSpots}/${totalSpots} spots visible on map`);
+      console.log(`🎉 BoundaryView: All data loaded successfully! ${visibleSpots}/${totalSpots} spots visible on map`);
       
       // Update cache status
       const status = ttsService.getCacheStatus();
       setCacheStatus(status);
     } catch (error) {
-      console.error('Failed to load spots:', error);
+      console.error('❌ BoundaryView: Failed to load spots:', error);
       setAllDataLoaded(true); // Still mark as loaded even if there's an error
     }
   };
@@ -216,8 +229,8 @@ const BoundaryView = () => {
   // Fetch a boundary for a given area name using OpenStreetMap's Nominatim API
   const fetchBoundaryForArea = async (areaName) => {
     try {
-      // Get city name from environment variable
-      const cityName = import.meta.env.VITE_CITY_NAME || '登封';
+      // Get city name from CityContext
+      const cityName = cityData?.cityName || '登封'; // fallback
       
       // Create search query with city name to narrow down results
       const searchQuery = `${cityName} ${areaName}`;
@@ -225,7 +238,7 @@ const BoundaryView = () => {
       const url =
         `https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${query}`;
 
-      console.log(`🔍 Searching for boundary: "${searchQuery}"`);
+      console.log(`🔍 Searching for boundary: "${searchQuery}" (cityId: ${cityId}, cityName: ${cityName})`);
 
       const response = await fetch(url, {
         headers: { 'Accept-Language': 'en' }
@@ -290,25 +303,38 @@ const BoundaryView = () => {
 
   // Check if an area already has a boundary (either original or fetched)
   const hasBoundary = (area) => {
-    return area.polygon && area.polygon.geometry && area.polygon.geometry.coordinates;
+    const hasPolygon = area.polygon && area.polygon.geometry && area.polygon.geometry.coordinates;
+    console.log(`🔍 hasBoundary check for ${area.name}:`, { 
+      hasPolygon, 
+      polygon: !!area.polygon, 
+      geometry: !!area.polygon?.geometry, 
+      coordinates: !!area.polygon?.geometry?.coordinates 
+    });
+    return hasPolygon;
   };
 
   // Handle area selection for boundary fetching
   const toggleAreaSelection = (areaName) => {
+    console.log('🔄 toggleAreaSelection called for:', areaName);
     setSelectedAreasForFetch(prev => {
-      if (prev.includes(areaName)) {
-        return prev.filter(name => name !== areaName);
-      } else {
-        return [...prev, areaName];
-      }
+      const newSelection = prev.includes(areaName) 
+        ? prev.filter(name => name !== areaName)
+        : [...prev, areaName];
+      console.log('📋 New selection:', newSelection);
+      return newSelection;
     });
   };
 
   // Select all areas that don't have boundaries
   const selectAreasWithoutBoundaries = () => {
+    console.log('🔄 selectAreasWithoutBoundaries called');
+    console.log('📊 Current scenic areas:', scenicAreas.map(a => ({ name: a.name, hasBoundary: hasBoundary(a) })));
+    
     const areasWithoutBoundaries = scenicAreas
       .filter(area => !hasBoundary(area))
       .map(area => area.name);
+    
+    console.log('📋 Areas without boundaries:', areasWithoutBoundaries);
     setSelectedAreasForFetch(areasWithoutBoundaries);
   };
 
@@ -318,12 +344,22 @@ const BoundaryView = () => {
   };
 
   const fetchSelectedBoundaries = async () => {
+    console.log('🚀 fetchSelectedBoundaries function called!');
+    console.log('🔍 Current state:', { cityId, selectedAreasForFetch: selectedAreasForFetch.length, scenicAreas: scenicAreas.length });
+    
+    if (!cityId) {
+      console.error('❌ No cityId available');
+      alert('City ID is required to fetch boundaries. Please try again.');
+      return;
+    }
+    
     if (selectedAreasForFetch.length === 0) {
+      console.error('❌ No areas selected for fetching');
       alert('Please select at least one area to fetch boundaries for.');
       return;
     }
 
-    console.log('🚀 fetchSelectedBoundaries called!');
+    console.log('🚀 fetchSelectedBoundaries proceeding with execution!');
     console.log('📊 Selected areas count:', selectedAreasForFetch.length);
     console.log('📊 Selected areas:', selectedAreasForFetch);
     
@@ -354,7 +390,7 @@ const BoundaryView = () => {
       }
       
       // Get the original scenic areas data to preserve all fields
-      const originalScenicAreas = await dataService.getScenicAreas();
+      const originalScenicAreas = await dataService.getScenicAreas(cityId);
       
       // Update scenic areas with fetched boundaries
       const updatedScenicAreas = originalScenicAreas.map(area => {
@@ -375,7 +411,7 @@ const BoundaryView = () => {
       console.log('Updated scenic areas:', updatedScenicAreas);
       
       // Update scenic areas using dataService
-      const success = dataService.updateScenicAreas(updatedScenicAreas);
+      const success = dataService.updateScenicAreas(cityId, updatedScenicAreas);
       
       if (success) {
         console.log('💾 Successfully updated scenic areas with fetched boundaries');
@@ -402,8 +438,13 @@ const BoundaryView = () => {
 
 
   const clearFetchedBoundaries = () => {
+    if (!cityId) {
+      alert('City ID is required to clear boundaries. Please try again.');
+      return;
+    }
+    
     // Clear fetched scenic areas using dataService
-    const success = dataService.clearFetchedScenicAreas();
+    const success = dataService.clearFetchedScenicAreas(cityId);
     
     if (success) {
       console.log('🗑️ Successfully cleared fetched boundaries');
@@ -425,11 +466,16 @@ const BoundaryView = () => {
   };
 
   const copyUpdatedScenicAreaData = async () => {
+    if (!cityId) {
+      alert('City ID is required to copy data. Please try again.');
+      return;
+    }
+    
     try {
       console.log('📋 Copying updated scenic area data...');
       
       // Get the current scenic areas data (with fetched boundaries)
-      const currentData = await dataService.getScenicAreas();
+      const currentData = await dataService.getScenicAreas(cityId);
       
       // Create a clean copy for export - preserve all original fields
       const exportData = currentData.map(area => ({
@@ -550,6 +596,20 @@ const BoundaryView = () => {
           console.log('Canvas update - drawing boundaries for', displayScenicAreas.length, 'areas');
           console.log('Display scenic areas data:', displayScenicAreas);
           
+          // Debug: Log polygon structures for each area
+          displayScenicAreas.forEach((area, index) => {
+            if (area.polygon) {
+              console.log(`🔍 Area ${index}: ${area.name} - Polygon structure:`, {
+                hasPolygon: !!area.polygon,
+                hasGeometry: !!area.polygon.geometry,
+                hasCoordinates: !!area.polygon.geometry?.coordinates,
+                coordinatesType: typeof area.polygon.geometry?.coordinates,
+                coordinatesLength: Array.isArray(area.polygon.geometry?.coordinates) ? area.polygon.geometry.coordinates.length : 'N/A',
+                firstCoordinate: area.polygon.geometry?.coordinates?.[0]
+              });
+            }
+          });
+          
           // Draw each scenic area boundary (circles or polygons)
           displayScenicAreas.forEach((area) => {
             const isSelected = selectedArea?.name === area.name;
@@ -559,10 +619,41 @@ const BoundaryView = () => {
 
             if (area.polygon) {
               // Draw original polygon boundary
-              const coordinates = area.polygon.geometry.coordinates[0];
+              console.log(`🔍 Drawing polygon for ${area.name}:`, area.polygon);
+              
+              // Validate polygon structure
+              if (!area.polygon.geometry || !area.polygon.geometry.coordinates) {
+                console.warn(`⚠️ Invalid polygon structure for ${area.name}:`, area.polygon);
+                return;
+              }
+              
+              let coordinates;
+              if (Array.isArray(area.polygon.geometry.coordinates[0])) {
+                // Standard GeoJSON format: coordinates[0] is an array of coordinate arrays
+                coordinates = area.polygon.geometry.coordinates[0];
+              } else if (Array.isArray(area.polygon.geometry.coordinates)) {
+                // Alternative format: coordinates is directly an array of coordinate arrays
+                coordinates = area.polygon.geometry.coordinates;
+              } else {
+                console.warn(`⚠️ Unknown coordinate format for ${area.name}:`, area.polygon.geometry.coordinates);
+                return;
+              }
+              
+              if (!Array.isArray(coordinates) || coordinates.length === 0) {
+                console.warn(`⚠️ No valid coordinates found for ${area.name}:`, coordinates);
+                return;
+              }
+              
+              console.log(`✅ Drawing ${coordinates.length} coordinate points for ${area.name}`);
+              
               ctx.beginPath();
               
               coordinates.forEach((coord, index) => {
+                if (!Array.isArray(coord) || coord.length < 2) {
+                  console.warn(`⚠️ Invalid coordinate at index ${index}:`, coord);
+                  return;
+                }
+                
                 const point = new window.BMap.Point(coord[0], coord[1]);
                 const pixel = baiduMap.pointToPixel(point);
                 
@@ -890,38 +981,64 @@ const BoundaryView = () => {
   }, [map, userLocation]);
 
   useEffect(() => {
-    loadScenicAreas();
-    // getUserLocation();
+    if (cityId) {
+      console.log('🔄 BoundaryView: Initializing with cityId:', cityId);
+      loadScenicAreas();
+      // getUserLocation();
 
-    // Load Baidu Maps API
-    if (!window.BMap) {
-      const script = document.createElement('script');
-      script.src = `https://api.map.baidu.com/api?v=3.0&ak=${BAIDU_API_KEY}&callback=initBaiduMapBoundary`;
-      script.async = true;
-      
-      window.initBaiduMapBoundary = () => {
+      // Load Baidu Maps API
+      if (!window.BMap) {
+        console.log('🗺️ BoundaryView: Loading Baidu Maps API...');
+        const script = document.createElement('script');
+        script.src = `https://api.map.baidu.com/api?v=3.0&ak=${BAIDU_API_KEY}&callback=initBaiduMapBoundary`;
+        script.async = true;
+        
+        window.initBaiduMapBoundary = () => {
+          console.log('✅ BoundaryView: Baidu Maps API loaded');
+          setMapLoaded(true);
+        };
+        
+        document.head.appendChild(script);
+        
+        return () => {
+          if (document.head.contains(script)) {
+            document.head.removeChild(script);
+          }
+        };
+      } else {
+        console.log('✅ BoundaryView: Baidu Maps API already available');
         setMapLoaded(true);
-      };
-      
-      document.head.appendChild(script);
-      
-      return () => {
-        if (document.head.contains(script)) {
-          document.head.removeChild(script);
-        }
-      };
+      }
     } else {
-      setMapLoaded(true);
+      console.log('⚠️ BoundaryView: No cityId available for initialization');
     }
-  }, []);
+  }, [cityId]);
 
   // Load spots when scenic areas are loaded
   useEffect(() => {
     if (scenicAreas.length > 0) {
-      console.log('Scenic areas loaded, triggering spots load');
+      console.log('🔄 BoundaryView: Scenic areas loaded, triggering spots load for', scenicAreas.length, 'areas');
       loadSpots();
+    } else {
+      console.log('⚠️ BoundaryView: No scenic areas available yet');
     }
   }, [scenicAreas]);
+
+  // Reload data when cityId changes
+  useEffect(() => {
+    if (cityId) {
+      console.log('🔄 BoundaryView: City ID changed, reloading data for:', cityId);
+      setLoading(true);
+      setError(null);
+      setScenicAreas([]);
+      setDisplayScenicAreas([]);
+      setSpots({});
+      setAllDataLoaded(false);
+      loadScenicAreas();
+    } else {
+      console.log('⚠️ BoundaryView: No cityId available yet');
+    }
+  }, [cityId]);
 
   // Debug spots state changes
   useEffect(() => {
@@ -1061,7 +1178,7 @@ const BoundaryView = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-xl text-blue-600 font-semibold">
-          {loading ? 'Loading scenic areas...' : 'Loading spots data...'}
+          {!cityId ? 'Loading city data...' : loading ? 'Loading scenic areas...' : 'Loading spots data...'}
         </div>
       </div>
     );
@@ -1073,6 +1190,17 @@ const BoundaryView = () => {
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-red-600 text-center">
           <div className="text-xl font-semibold mb-2">Error</div>
           <div>{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!cityId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-yellow-600 text-center">
+          <div className="text-xl font-semibold mb-2">City Not Selected</div>
+          <div>Please select a city to view boundaries</div>
         </div>
       </div>
     );
@@ -1259,12 +1387,26 @@ const BoundaryView = () => {
                 <div className="text-xs text-gray-600 mt-1">
                   {selectedAreasForFetch.length} of {scenicAreas.length} areas selected
                 </div>
+                
+                {/* Debug info */}
+                <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-100 rounded">
+                  <div>Debug: cityId = {cityId || 'undefined'}</div>
+                  <div>Debug: selectedAreasForFetch = [{selectedAreasForFetch.join(', ')}]</div>
+                  <div>Debug: isFetchingBoundaries = {isFetchingBoundaries.toString()}</div>
+                  <div>Debug: scenicAreas count = {scenicAreas.length}</div>
+                </div>
               </div>
               
               <div className="space-y-3">
                 <button
                   onClick={() => {
                     console.log('🔘 Fetch Selected Boundaries button clicked!');
+                    console.log('🔍 Button state:', { 
+                      isFetchingBoundaries, 
+                      selectedAreasForFetch: selectedAreasForFetch.length,
+                      cityId,
+                      scenicAreas: scenicAreas.length
+                    });
                     fetchSelectedBoundaries();
                   }}
                   disabled={isFetchingBoundaries || selectedAreasForFetch.length === 0}

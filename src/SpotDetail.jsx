@@ -87,6 +87,7 @@ function SpotDetail() {
   // Determine which media to use
   const hasVideo = videoFile && !videoError;
   const hasImageSequence = imageSequence && imageSequence.length > 0;
+  const hasImage = Boolean(spot?.image);
   const hasAudio = audioFile && !audioError;
 
   const handleSeek = (seconds) => {
@@ -228,7 +229,7 @@ function SpotDetail() {
           🏯 {spot.name}
         </h1>
 
-        {/* Video Player, Image Sequence, or Large Image with Overlay Controls */}
+        {/* Video Player, Image Sequence, Large Image, or Audio Placeholder with Overlay Controls */}
         <div className="mb-4 relative group">
           {hasVideo ? (
             <video
@@ -260,7 +261,7 @@ function SpotDetail() {
               </div>
               {/* Progress bar */}
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/30 rounded-b-xl">
-                <div 
+                <div
                   className="h-full bg-blue-500 transition-all duration-100 rounded-bl-xl"
                   style={{
                     width: `${((currentTime / realAudioDuration) * 100)}%`
@@ -268,13 +269,18 @@ function SpotDetail() {
                 ></div>
               </div>
             </div>
-          ) : (
+          ) : hasImage ? (
             <img
               src={dataService.resolveImageUrl(cityId, spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name)}
               alt={spot.name}
               className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg cursor-pointer"
               onClick={toggleMedia}
             />
+          ) : (
+            <div
+              className="w-full h-80 md:h-96 bg-gray-200 rounded-xl shadow-lg cursor-pointer"
+              onClick={toggleMedia}
+            ></div>
           )}
           
           {/* Center Play/Pause Button Overlay */}

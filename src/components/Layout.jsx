@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTargetArea } from '../hooks/useTargetArea';
 import { getValidationStatus } from '../utils/validationStatus';
 import { useCity } from './CityLayout';
 
-const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdmin = false }) => {
+const Layout = ({ children, title, showBack = false, showBottomNav = true }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { cityId } = useCity() || {};
-  const { isDebugMode, currentTargetArea } = useTargetArea();
+  const { currentTargetArea } = useTargetArea();
   const [sessionStatus, setSessionStatus] = useState(null);
+
+  const adminMode = import.meta.env.VITE_ADMIN_MODE === 'true';
 
   // Update session status periodically
   useEffect(() => {
@@ -53,6 +55,10 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
     } else {
       navigate(path);
     }
+  };
+
+  const handleCityChange = () => {
+    navigate('/');
   };
 
   const isActive = (path) => {
@@ -107,8 +113,8 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
             <button
               onClick={() => handleNavigate('/')}
               className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
-                isActive('/') 
-                  ? 'text-blue-600 bg-blue-50' 
+                isActive('/')
+                  ? 'text-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
               }`}
             >
@@ -137,8 +143,8 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
             <button
               onClick={() => handleNavigate('/select-area')}
               className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
-                isActive('/select-area') 
-                  ? 'text-blue-600 bg-blue-50' 
+                isActive('/select-area')
+                  ? 'text-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
               }`}
             >
@@ -148,8 +154,24 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
               <span className="text-xs">选择景区</span>
             </button>
 
+            {/* Change City Button */}
+            <button
+              onClick={handleCityChange}
+              className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
+                location.pathname === '/'
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H3m0 0l3-3m-3 3l3 3m10 7h5m0 0l-3 3m3-3l-3-3" />
+              </svg>
+              <span className="text-xs">切换城市</span>
+            </button>
+
             {/* Boundaries Button - Only show in debug mode AND development */}
-            {/* {import.meta.env.DEV && (
+            {import.meta.env.DEV && adminMode && (
+              <>
               <button
                 onClick={() => handleNavigate('/boundaries')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
@@ -163,10 +185,6 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
                 </svg>
                 <span className="text-xs">管理</span>
               </button>
-            )} */}
-
-            {/* Editor Mode Button - Only show in admin mode AND development */}
-            {import.meta.env.DEV && (
               <button
                 onClick={() => handleNavigate('/editor')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
@@ -180,6 +198,7 @@ const Layout = ({ children, title, showBack = false, showBottomNav = true, isAdm
                 </svg>
                 <span className="text-xs">编辑模式</span>
               </button>
+              </>
             )}
           </div>
         </div>
