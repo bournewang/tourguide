@@ -3,7 +3,6 @@ import { cacheService } from './cacheService';
 import locations from '../data/locations.json';
 
 // Environment detection
-const isDevelopment = import.meta.env.DEV;
 const isProduction = import.meta.env.PROD;
 const forceStatic = import.meta.env.VITE_USE_STATIC_DATA === 'true';
 
@@ -15,11 +14,13 @@ const DATA_PATH_PREFIX = '/assets';
 // Resource base URL for static assets
 const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_BASE_URL || '';
 
-// Helper to find province for a city
+// Helper to find province for a city using locations data
 const getProvinceIdForCity = (cityId) => {
   for (const province of locations) {
-    if (province.cities.some(city => city.id === cityId)) {
-      return province.province_id;
+    const city = province.cities.find(city => city.id === cityId);
+    if (city) {
+      // Extract province code from assetsPath (e.g., "assets/henan/郑州" -> "henan")
+      return city.assetsPath.split('/')[1];
     }
   }
   return null;
@@ -215,6 +216,7 @@ export const dataService = {
         
         const staticPaths = getStaticPaths(cityId);
         const spotFilePath = `${staticPaths.spotsBasePath}${area.spotsFile}`;
+        console.log("spotFilePath", spotFilePath);
         
         const response = await fetch(spotFilePath);
         
@@ -227,7 +229,27 @@ export const dataService = {
         if (rawData.spots && Array.isArray(rawData.spots)) {
           spotData = rawData.spots;
         } else if (rawData.results && Array.isArray(rawData.results)) {
-          spotData = rawData.results;
+          // Handle AMap format
+          spotData = rawData.results.map(spot => ({
+            name: spot.name,
+            address: spot.address || '',
+            location: spot.location,
+            type: spot.type || '',
+            rating: spot.rating || 0,
+            distance: spot.distance || null,
+            telephone: spot.tel || '',
+            photos: spot.photos && spot.photos.length > 0 
+              ? spot.photos.map(photo => photo.url) 
+              : [],
+            thumbnail: spot.photos && spot.photos.length > 0 
+              ? spot.photos[0].url 
+              : null,
+            tag: spot.tag || '',
+            website: spot.website || '',
+            provider: spot.provider || 'amap',
+            display: 'show',
+            // Add any other properties needed for compatibility
+          }));
         } else if (Array.isArray(rawData)) {
           spotData = rawData;
         } else {
@@ -297,5 +319,74 @@ export const dataService = {
       delete _scenicAreasCache[cityId];
     }
     return true;
+  },
+
+  // Clear all cache for a specific city (scenic areas + spots)
+  clearCityCache(cityId) {
+    console.log(`🧹 Clearing all cache for city: ${cityId}`);
+    
+    // Clear scenic areas cache
+    const scenicAreasCacheKey = `scenic_areas_${cityId}`;
+    const fetchedCacheKey = `scenic_areas_fetched_${cityId}`;
+    
+    cacheService.clear(scenicAreasCacheKey);
+    cacheService.clear(fetchedCacheKey);
+    
+    if (_scenicAreasCache[cityId]) {
+      delete _scenicAreasCache[cityId];
+    }
+    
+    // Clear spots cache for all areas in this city
+    // We need to find all spots cache keys for this city
+    const cacheStatus = cacheService.getStatus();
+    let clearedSpotsCount = 0;
+    
+    if (cacheStatus && cacheStatus.entries) {
+      cacheStatus.entries.forEach(entry => {
+        if (entry.key.startsWith(`spots_${cityId}_`)) {
+          cacheService.clear(entry.key);
+          clearedSpotsCount++;
+        }
+      });
+    }
+    
+    console.log(`✅ Cleared cache for ${cityId}:`);
+    console.log(`   - Scenic areas cache: 2 entries`);
+    console.log(`   - Spots cache: ${clearedSpotsCount} entries`);
+    console.log(`🔄 Please refresh the page to reload data from files`);
+    
+    return {
+      cityId,
+      clearedScenicAreas: 2,
+      clearedSpots: clearedSpotsCount,
+      total: 2 + clearedSpotsCount
+    };
+  },
+
+  // Force refresh data for a city (clear cache + reload)
+  async forceRefreshCity(cityId) {
+    console.log(`🔄 Force refreshing data for city: ${cityId}`);
+    
+    // Clear cache first
+    const clearResult = this.clearCityCache(cityId);
+    
+    try {
+      // Reload scenic areas
+      const scenicAreas = await this.getScenicAreas(cityId);
+      console.log(`✅ Reloaded ${scenicAreas.length} scenic areas for ${cityId}`);
+      
+      return {
+        success: true,
+        clearResult,
+        scenicAreasCount: scenicAreas.length
+      };
+    } catch (error) {
+      console.error(`❌ Failed to reload data for ${cityId}:`, error);
+      return {
+        success: false,
+        clearResult,
+        error: error.message
+      };
+    }
   }
 };

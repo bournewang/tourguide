@@ -969,6 +969,16 @@ function NarrationEditor() {
                 </button>
               </div>
             )}
+
+            {/* Scenic Area Coordinates & Spots Search */}
+            {selectedArea && (
+              <ScenicAreaCoordinatesEditor 
+                selectedArea={selectedArea}
+                onUpdateArea={setSelectedArea}
+                onSpotsRetrieved={loadSpots}
+                cityId={cityId}
+              />
+            )}
           </div>
 
           {/* Spots List */}
@@ -1048,4 +1058,271 @@ function NarrationEditor() {
   );
 }
 
-export default NarrationEditor; 
+// Scenic Area Coordinates Editor Component
+function ScenicAreaCoordinatesEditor({ selectedArea, onUpdateArea, onSpotsRetrieved, cityId }) {
+  const [editingCoords, setEditingCoords] = useState(false);
+  const [tempLat, setTempLat] = useState('');
+  const [tempLng, setTempLng] = useState('');
+  const [tempRadius, setTempRadius] = useState('');
+  const [isSearchingSpots, setIsSearchingSpots] = useState(false);
+  const [spotsSearchMessage, setSpotsSearchMessage] = useState('');
+
+  // Initialize temp values when area changes
+  useEffect(() => {
+    if (selectedArea?.center) {
+      setTempLat(selectedArea.center.lat?.toString() || '');
+      setTempLng(selectedArea.center.lng?.toString() || '');
+      setTempRadius(selectedArea.radius?.toString() || '1000');
+    }
+  }, [selectedArea]);
+
+  const handleStartEdit = () => {
+    setEditingCoords(true);
+    setTempLat(selectedArea.center?.lat?.toString() || '');
+    setTempLng(selectedArea.center?.lng?.toString() || '');
+    setTempRadius(selectedArea.radius?.toString() || '1000');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCoords(false);
+    setTempLat('');
+    setTempLng('');
+    setTempRadius('');
+  };
+
+  const handleSaveCoords = () => {
+    const lat = parseFloat(tempLat);
+    const lng = parseFloat(tempLng);
+    const radius = parseInt(tempRadius);
+
+    if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+      alert('请输入有效的坐标和半径数值');
+      return;
+    }
+
+    if (lat < -90 || lat > 90) {
+      alert('纬度必须在 -90 到 90 之间');
+      return;
+    }
+
+    if (lng < -180 || lng > 180) {
+      alert('经度必须在 -180 到 180 之间');
+      return;
+    }
+
+    if (radius < 100 || radius > 10000) {
+      alert('搜索半径必须在 100 到 10000 米之间');
+      return;
+    }
+
+    // Update the area with new coordinates
+    const updatedArea = {
+      ...selectedArea,
+      center: { lat, lng },
+      radius: radius
+    };
+
+    onUpdateArea(updatedArea);
+    setEditingCoords(false);
+    setSpotsSearchMessage('坐标已更新，点击"搜索景点"按钮获取新的景点数据');
+    setTimeout(() => setSpotsSearchMessage(''), 5000);
+  };
+
+  const handleSearchSpots = async () => {
+    if (!selectedArea?.center) {
+      alert('请先设置景区坐标');
+      return;
+    }
+
+    setIsSearchingSpots(true);
+    setSpotsSearchMessage('正在搜索景点...');
+
+    try {
+      // Call the spots search API on the backend server
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+      const response = await fetch(`${API_BASE}/api/search-spots-in-scenic-area`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scenicAreaName: selectedArea.name,
+          center: selectedArea.center,
+          radius: selectedArea.radius || 1000,
+          province: 'henan', // TODO: Get from context or config
+          city: cityId || '郑州' // Use cityId from context
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`搜索失败: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setSpotsSearchMessage(`✅ 成功搜索到 ${result.spotsCount} 个景点，数据已更新`);
+        // Trigger spots reload
+        if (onSpotsRetrieved) {
+          onSpotsRetrieved();
+        }
+      } else {
+        setSpotsSearchMessage(`❌ 搜索失败: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Spots search error:', error);
+      setSpotsSearchMessage(`❌ 搜索失败: ${error.message}`);
+    } finally {
+      setIsSearchingSpots(false);
+      // Clear message after 10 seconds
+      setTimeout(() => setSpotsSearchMessage(''), 10000);
+    }
+  };
+
+  return (
+    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-medium text-gray-700">景区坐标与景点搜索</h4>
+        {!editingCoords && (
+          <button
+            onClick={handleStartEdit}
+            className="text-xs px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+          >
+            ✏️ 编辑
+          </button>
+        )}
+      </div>
+
+      {/* Display current coordinates */}
+      {!editingCoords && selectedArea?.center && (
+        <div className="space-y-2 text-xs text-gray-600">
+          <div className="flex justify-between">
+            <span>纬度:</span>
+            <span className="font-mono">{selectedArea.center.lat}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>经度:</span>
+            <span className="font-mono">{selectedArea.center.lng}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>搜索半径:</span>
+            <span className="font-mono">{selectedArea.radius || 1000}m</span>
+          </div>
+        </div>
+      )}
+
+      {/* Edit coordinates form */}
+      {editingCoords && (
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              纬度 (Latitude)
+            </label>
+            <input
+              type="number"
+              step="0.000001"
+              value={tempLat}
+              onChange={(e) => setTempLat(e.target.value)}
+              placeholder="34.486349"
+              className="w-full p-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              经度 (Longitude)
+            </label>
+            <input
+              type="number"
+              step="0.000001"
+              value={tempLng}
+              onChange={(e) => setTempLng(e.target.value)}
+              placeholder="112.949076"
+              className="w-full p-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              搜索半径 (米)
+            </label>
+            <input
+              type="number"
+              min="100"
+              max="10000"
+              step="100"
+              value={tempRadius}
+              onChange={(e) => setTempRadius(e.target.value)}
+              placeholder="1000"
+              className="w-full p-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveCoords}
+              className="flex-1 px-3 py-2 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              ✅ 保存
+            </button>
+            <button
+              onClick={handleCancelEdit}
+              className="flex-1 px-3 py-2 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              ❌ 取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search spots button */}
+      {!editingCoords && selectedArea?.center && (
+        <div className="mt-3">
+          <button
+            onClick={handleSearchSpots}
+            disabled={isSearchingSpots}
+            className="w-full px-3 py-2 text-xs bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isSearchingSpots ? (
+              <>
+                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                搜索中...
+              </>
+            ) : (
+              <>
+                🔍 搜索景点
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Search message */}
+      {spotsSearchMessage && (
+        <div className={`mt-2 text-xs p-2 rounded ${
+          spotsSearchMessage.includes('❌') 
+            ? 'bg-red-100 text-red-600' 
+            : spotsSearchMessage.includes('✅')
+            ? 'bg-green-100 text-green-600'
+            : 'bg-blue-100 text-blue-600'
+        }`}>
+          {spotsSearchMessage}
+        </div>
+      )}
+
+      {/* Coordinate source info */}
+      {selectedArea?.coordinateInfo && (
+        <div className="mt-2 text-xs text-gray-500">
+          <div className="flex justify-between">
+            <span>坐标来源:</span>
+            <span>{selectedArea.coordinateInfo.source}</span>
+          </div>
+          {selectedArea.coordinateInfo.formatted_address && (
+            <div className="mt-1 text-xs text-gray-400">
+              {selectedArea.coordinateInfo.formatted_address}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default NarrationEditor;

@@ -12,8 +12,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const AZURE_SPEECH_KEY = process.env.AZURE_SPEECH_KEY || '';
-const AZURE_SPEECH_REGION = process.env.AZURE_SPEECH_REGION || 'eastus';
+const AZURE_SPEECH_KEY = process.env.VITE_AZURE_SPEECH_KEY || process.env.AZURE_SPEECH_KEY || '';
+const AZURE_SPEECH_REGION = process.env.VITE_AZURE_SPEECH_REGION || process.env.AZURE_SPEECH_REGION || 'eastus';
 const DEFAULT_OUTPUT_FORMAT = 'audio-16khz-32kbitrate-mono-mp3';
 
 // Voice mapping for characters
@@ -384,4 +384,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
 
-export { generateNarration, VOICE_MAPPING }; 
+export { generateNarration, VOICE_MAPPING };

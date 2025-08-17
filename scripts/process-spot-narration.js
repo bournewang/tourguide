@@ -11,9 +11,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const AZURE_SPEECH_KEY = process.env.AZURE_SPEECH_KEY || '';
-const AZURE_SPEECH_REGION = process.env.AZURE_SPEECH_REGION || 'eastus';
-const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || '';
+const AZURE_SPEECH_KEY = process.env.VITE_AZURE_SPEECH_KEY || process.env.AZURE_SPEECH_KEY || '';
+const AZURE_SPEECH_REGION = process.env.VITE_AZURE_SPEECH_REGION || process.env.AZURE_SPEECH_REGION || 'eastus';
+const DASHSCOPE_API_KEY = process.env.VITE_DASHSCOPE_API_KEY || process.env.DASHSCOPE_API_KEY || '';
 
 // Default settings
 const DEFAULT_VOICE = 'zh-CN-XiaoxiaoNeural';
@@ -47,6 +47,7 @@ function showUsage() {
   -v, --voice <voice>     语音选择 (默认: xiaoxiao)
   -r, --rate <rate>       语速调整 (默认: -10%)
   -d, --duration <min>    目标时长分钟数 (默认: 1-2分钟)
+  --city-name <name>      城市名称（可用于AI提示词）
   --area-name <name>      指定景区名称（可用于AI提示词）
   --skip-existing         跳过已存在的音频文件
   --dry-run               仅生成文本，不生成音频
@@ -61,7 +62,7 @@ function showUsage() {
   node process-spot-narration.js --ai-provider openai public/data/spots/shaolinsi.json ./public/assets/audio/嵩山/
   node process-spot-narration.js --dry-run public/data/spots/shaolinsi.json ./public/assets/audio/少林寺/
   node process-spot-narration.js --force-regenerate public/data/spots/shaolinsi.json ./public/assets/audio/少林寺/
-  node process-spot-narration.js --area-name "嵩山少林寺" public/data/spots/shaolinsi.json ./public/assets/audio/少林寺/
+  node process-spot-narration.js --city-name 登封 --area-name "嵩山少林寺" public/data/spots/shaolinsi.json ./public/assets/audio/少林寺/
   node process-spot-narration.js --tts-only public/data/spots/shaolinsi.json ./public/assets/audio/少林寺/
 
 环境变量:
@@ -134,6 +135,11 @@ function parseArguments() {
       case '--duration':
         if (i + 1 < args.length) {
           options.duration = args[++i];
+        }
+        break;
+      case '--city-name':
+        if (i + 1 < args.length) {
+          options.cityName = args[++i];
         }
         break;
       case '--area-name':
@@ -240,24 +246,38 @@ function validateOptions(options) {
 }
 
 async function generateNarrationWithAI(spot, options) {
-  const prompt = `请为以下景点生成一段${options.duration}分钟内的解说词。
-  要求：\n1. 适合旅游解说，口语化，减少机器味；\n
-  2. 如果有名人题字，如匾额、对联，要说出来，但一定要采用真实数据，不可杜撰、编造；\n
-  3. 如果真实性无法确定，则不要采用该语料；\n
-  5. 长度控制在${options.duration}分钟内；\n
-  6. 人已在景点前，不要说“xxx坐落于/位于xxx，现在我们来到xxx，”；\n\n
-  景点名称：${options.areaName} ${spot.name} \n
-  请直接返回解说词文本，不要包含任何格式标记或额外说明。`;
+  // const prompt = `请为以下景点生成一段${options.duration}分钟内的解说词。
+  // 要求：\n1. 适合旅游解说，口语化，减少机器味；\n
+  // 2. 如果有名人题字，如匾额、对联，要说出来，但一定要采用真实数据，不可杜撰、编造；\n
+  // 3. 如果真实性无法确定，则不要采用该语料；\n
+  // 5. 长度控制在${options.duration}分钟内；\n
+  // 6. 人已在景点前，不要说“xxx坐落于/位于xxx，现在我们来到xxx，”；\n\n
+  // 景点名称：${options.areaName} ${spot.name} \n
+  // 请直接返回解说词文本，不要包含任何格式标记或额外说明。`;
+
+  let prompt = `请为${options.cityName}${options.areaName}中的景点"${spot.name}"生成一段生动有趣的导游词。景点地址：${spot.address || '未知'}。
+
+要求：
+1. 语言生动有趣，适合导游现场讲解；
+2. 使用口语化表达，避免过于书面化和机器味道；
+3. 长度控制在200-300字左右；
+4. 可以加入一些有趣的历史故事或传说，但一定要采用真实数据，不可杜撰、编造；
+5. 如果真实性无法确定，则不要采用该语料；
+6. 人已在景点前，不要说"xxx坐落于/位于xxx，现在我们来到xxx，"；`;
+
+  // console.log("prompt", prompt);
+
 
   let baseUrl, model, apiKey, authHeader, extraHeaders = {};
   if (options.aiProvider === 'aliyun') {
     baseUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
     model = 'qwen-plus';
-    apiKey = process.env.DASHSCOPE_API_KEY;
+    apiKey = process.env.VITE_DASHSCOPE_API_KEY || process.env.DASHSCOPE_API_KEY;
     authHeader = `Bearer ${apiKey}`;
   } else if (options.aiProvider === 'openai') {
-    baseUrl = 'https://ai-gateway-intl.eo-edgefunctions7.com/v1/chat/completions';
-    model = 'gpt-4o';
+    // baseUrl = 'https://ai-gateway-intl.eo-edgefunctions7.com/v1/chat/completions';
+    baseUrl = "https://api.openai.com/v1/chat/completions"
+    model = 'gpt-5';
     apiKey = process.env.OPENAI_API_KEY;
     authHeader = `Bearer ${apiKey}`;
     extraHeaders = {
@@ -289,6 +309,7 @@ async function generateNarrationWithAI(spot, options) {
             content: prompt
           }
         ],
+        // stream: false,
         max_tokens: 1000,
         temperature: 0.7
       })
@@ -297,6 +318,7 @@ async function generateNarrationWithAI(spot, options) {
     if (!response.ok) {
       throw new Error(`${options.aiProvider} API 请求失败: ${response.status} ${response.statusText}`);
     }
+    console.log(response);
 
     const data = await response.json();
     const narration = data.choices[0].message.content.trim();
@@ -565,4 +587,4 @@ async function main() {
 }
 
 // Run the script
-main(); 
+main();

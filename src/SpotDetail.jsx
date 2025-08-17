@@ -60,11 +60,39 @@ function SpotDetail() {
   const audioFile = spot ? dataService.resolveAudioUrl(cityId, spot.audioFile) : null;
   const videoFile = spot?.videoFile ? dataService.resolveImageUrl(cityId, spot.videoFile) : null;
   const imageSequence = spot?.imageSequence ? spot.imageSequence.map(img => ({...img, img: dataService.resolveImageUrl(cityId, img.img)})) : null;
-  // convert imageSequence to full URLs
-  // const imageSequence = spot?.imageSequence.map(img => ({
-  //   ...img,
-  //   img: dataService.resolveImageUrl(cityId, img.img)
-  // })) || [];
+  
+  // Get main image from various possible sources (for AMap compatibility)
+  const getMainImage = () => {
+    // First check for traditional image property
+    if (spot?.image) {
+      return dataService.resolveImageUrl(cityId, spot.image);
+    }
+    
+    // Then check for thumbnail
+    if (spot?.thumbnail) {
+      if (spot.thumbnail.startsWith('http')) {
+        return spot.thumbnail;
+      }
+      return dataService.resolveThumbUrl(cityId, spot.thumbnail);
+    }
+    
+    // Then check for photos array (AMap format)
+    if (spot?.photos && spot.photos.length > 0) {
+      // If photos is an array of strings (our converted format)
+      if (typeof spot.photos[0] === 'string') {
+        return spot.photos[0];
+      }
+      // If photos is an array of objects with url property (original AMap format)
+      else if (spot.photos[0].url) {
+        return spot.photos[0].url;
+      }
+    }
+    
+    // Fallback to placeholder
+    return `https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=${encodeURIComponent(spot?.name || 'Loading...')}`;
+  };
+  
+  const mainImage = getMainImage();
 
   console.log("imageSequence", imageSequence);
 
@@ -87,7 +115,6 @@ function SpotDetail() {
   // Determine which media to use
   const hasVideo = videoFile && !videoError;
   const hasImageSequence = imageSequence && imageSequence.length > 0;
-  const hasImage = Boolean(spot?.image);
   const hasAudio = audioFile && !audioError;
 
   const handleSeek = (seconds) => {
@@ -269,9 +296,9 @@ function SpotDetail() {
                 ></div>
               </div>
             </div>
-          ) : hasImage ? (
+          ) : mainImage ? (
             <img
-              src={dataService.resolveImageUrl(cityId, spot.image) || 'https://via.placeholder.com/800x400/f3f4f6/9ca3af?text=' + encodeURIComponent(spot.name)}
+              src={mainImage}
               alt={spot.name}
               className="w-full h-80 md:h-96 object-cover rounded-xl shadow-lg cursor-pointer"
               onClick={toggleMedia}
@@ -439,4 +466,4 @@ function SpotDetail() {
   );
 }
 
-export default SpotDetail; 
+export default SpotDetail;

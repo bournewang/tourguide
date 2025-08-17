@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # Script to create thumbnails for all spot images
-# This script will process all images in public/spots/ directories and create optimized thumbnails
+# This script will process all images in the specified directory and create optimized thumbnails
 
 set -e  # Exit on any error
 
 # Configuration
-IMAGES_DIR="assets/dengfeng/images"
-THUMBS_DIR="assets/dengfeng/thumb"
+IMAGES_DIR=""  # Will be set by user input or default
+THUMBS_DIR=""  # Will be set based on IMAGES_DIR
+JSON_DIR=""    # Will be set by user input or default
 THUMB_SUFFIX=""  # No suffix needed since they're in separate directory
 THUMB_SIZE="300x200"  # Width x Height for thumbnails
 QUALITY=85           # JPEG quality (1-100)
@@ -50,7 +51,7 @@ check_imagemagick() {
     print_success "ImageMagick is installed"
 }
 
-# Check if spots directory exists
+# Check if images directory exists
 check_images_directory() {
     if [ ! -d "$IMAGES_DIR" ]; then
         print_error "Images directory '$IMAGES_DIR' does not exist"
@@ -120,6 +121,7 @@ process_spot_directory() {
                 
                 # if original image is not a jpg, rename it to jpg
                 if [ "$ext" != "jpg" ]; then
+                    local filename=$(basename "$image_file")
                     local new_filename="${filename%.*}"
                     local new_path="$spot_dir/$new_filename.jpg"
                     mv "$image_file" "$new_path"
@@ -170,14 +172,16 @@ process_spot_directory() {
 update_json_files() {
     print_status "Updating JSON files with thumbnail paths..."
     
-    # Find all JSON files in src/data/spots/
-    local json_dir="public/data/spots"
+    # Use specified JSON directory or default
+    local json_dir="${JSON_DIR:-public/data/spots}"
     local updated_files=0
     
     if [ ! -d "$json_dir" ]; then
         print_warning "JSON directory '$json_dir' not found, skipping JSON updates"
         return 0
     fi
+    
+    print_status "Processing JSON files in: $json_dir"
     
     for json_file in "$json_dir"/*.json; do
         [ ! -f "$json_file" ] && continue
@@ -217,6 +221,7 @@ main() {
     print_status "Starting thumbnail creation process..."
     print_status "Source Images: $IMAGES_DIR"
     print_status "Thumbnail Destination: $THUMBS_DIR"
+    print_status "JSON Directory: ${JSON_DIR:-public/data/spots (default)}"
     print_status "Thumbnail size: $THUMB_SIZE"
     print_status "Quality: $QUALITY%"
     echo
@@ -276,7 +281,7 @@ main() {
     
     print_status "Thumbnails are saved in a parallel directory structure: $THUMBS_DIR"
     print_status "You can now update your JSON data to use the new thumbnail paths."
-    print_status "Example: \"image_thumb\": \"/images-thumb/spot-area/spot-name/image.jpg\""
+    print_status "Example: \"image_thumb\": \"thumb/spot-area/spot-name/image.jpg\""
     
     echo
     print_success "Thumbnail creation process completed!"
@@ -284,25 +289,30 @@ main() {
 
 # Show help
 show_help() {
-    echo "Usage: $0 [OPTIONS] [AREA_NAME]"
+    echo "Usage: $0 [OPTIONS] <IMAGES_DIR> [AREA_NAME]"
     echo
-    echo "Create thumbnails for all spot images in public/images/<area>/<spot>/ directories"
-    echo "Thumbnails will be saved to public/images-thumb/<area>/<spot>/ with the same structure"
+    echo "Create thumbnails for all spot images in the specified directory"
+    echo "Thumbnails will be saved to <IMAGES_DIR>/../thumb/ with the same structure"
+    echo
+    echo "Arguments:"
+    echo "  IMAGES_DIR          Directory containing the images to process"
+    echo "  AREA_NAME           (Optional) Process only the specified area"
     echo
     echo "Options:"
     echo "  -s, --size SIZE     Thumbnail size (default: $THUMB_SIZE)"
     echo "  -q, --quality NUM   JPEG quality 1-100 (default: $QUALITY)"
+    echo "  -j, --json DIR      JSON directory to update (default: public/data/spots)"
     echo "  -h, --help          Show this help message"
     echo
     echo "Examples:"
-    echo "  $0                           # Use default settings"
-    echo "  $0 --size 400x300          # Custom thumbnail size"
-    echo "  $0 --quality 90            # Higher quality"
-    echo "  $0 --size 200x150 --quality 75  # Custom size and quality"
-    echo "  $0 中岳庙                     # Process only the '中岳庙' area"
+    echo "  $0 assets/dengfeng/images                    # Process all areas in dengfeng/images"
+    echo "  $0 assets/kaifeng/images 中岳庙              # Process only 中岳庙 area in kaifeng/images"
+    echo "  $0 --size 400x300 assets/dengfeng/images     # Custom thumbnail size"
+    echo "  $0 --quality 90 assets/kaifeng/images        # Higher quality"
+    echo "  $0 --json src/data/spots assets/dengfeng/images  # Custom JSON directory"
     echo
     echo "Output structure:"
-    echo "  public/images/<area>/<spot>/image.jpg  ->  public/images-thumb/<area>/<spot>/image.jpg"
+    echo "  <IMAGES_DIR>/<area>/<spot>/image.jpg  ->  <IMAGES_DIR>/../thumb/<area>/<spot>/image.jpg"
     echo
 }
 
@@ -316,6 +326,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -q|--quality)
             QUALITY="$2"
+            shift 2
+            ;;
+        -j|--json)
+            JSON_DIR="$2"
             shift 2
             ;;
         -h|--help)
@@ -332,7 +346,12 @@ while [[ $# -gt 0 ]]; do
             exit 1
             ;;
         *)
-            if [[ -z "$AREA_NAME" ]]; then
+            if [[ -z "$IMAGES_DIR" ]]; then
+                IMAGES_DIR="$1"
+                # Set THUMBS_DIR to be at the same level as IMAGES_DIR
+                THUMBS_DIR="$(dirname "$IMAGES_DIR")/thumb"
+                shift
+            elif [[ -z "$AREA_NAME" ]]; then
                 AREA_NAME="$1"
                 shift
             else
@@ -343,6 +362,13 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Check if IMAGES_DIR was provided
+if [[ -z "$IMAGES_DIR" ]]; then
+    print_error "Images directory is required"
+    show_help
+    exit 1
+fi
 
 # Validate quality parameter
 if ! [[ "$QUALITY" =~ ^[0-9]+$ ]] || [ "$QUALITY" -lt 1 ] || [ "$QUALITY" -gt 100 ]; then

@@ -2,10 +2,10 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import SpotList from './SpotList';
 import SpotDetail from './SpotDetail';
-import MapView from './MapView';
 import ScenicAreaSelector from './pages/ScenicAreaSelector';
 import Layout from './components/Layout';
 import CityLayout from './components/CityLayout';
+import MapProvider from './components/MapProvider';
 
 // Conditionally import admin/debug components only in development
 const isDevelopment = import.meta.env.DEV;
@@ -71,7 +71,7 @@ function CityAppLayout({ isAdmin }) {
           
           <Route path="map" element={
             <Layout title="景点地图" showBack={true} showBottomNav={true} isAdmin={isAdmin}>
-              <MapView />
+              <MapProvider />
             </Layout>
           } />
           

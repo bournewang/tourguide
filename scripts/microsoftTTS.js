@@ -6,13 +6,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import os from 'os';
+import process from 'process';
+import { Buffer } from 'buffer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const AZURE_SPEECH_KEY = process.env.AZURE_SPEECH_KEY || '';
-const AZURE_SPEECH_REGION = process.env.AZURE_SPEECH_REGION || 'eastus';
+const AZURE_SPEECH_KEY = process.env.VITE_AZURE_SPEECH_KEY || process.env.AZURE_SPEECH_KEY || '';
+const AZURE_SPEECH_REGION = process.env.VITE_AZURE_SPEECH_REGION || process.env.AZURE_SPEECH_REGION || 'eastus';
 
 // Default settings
 const DEFAULT_VOICE = 'zh-CN-XiaoxiaoNeural';
@@ -360,4 +362,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
 
-export { synthesizeSpeech, generateSSML, VOICES }; 
+export { synthesizeSpeech, generateSSML, VOICES };

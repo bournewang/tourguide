@@ -2,9 +2,23 @@
 
 import fs from 'fs';
 import path from 'path';
+import process from 'process';
 
-const spotsDir = path.resolve('public/assets/data/spots');
-const outputFile = path.resolve('public/assets/data/scenic-area.json');
+// Get city path from command line argument
+const cityPath = process.argv[2];
+if (!cityPath) {
+  console.error('Usage: node generate_scenic_area_summary.js <cityPath>');
+  process.exit(1);
+}
+
+const spotsDir = path.join(cityPath, 'data', 'spots');
+const outputFile = path.join(cityPath, 'data', 'scenic-area.json');
+
+// Check if spots directory exists
+if (!fs.existsSync(spotsDir)) {
+  console.error(`Spots directory not found: ${spotsDir}`);
+  process.exit(1);
+}
 
 const files = fs.readdirSync(spotsDir).filter(f => f.endsWith('.json'));
 const summary = [];
@@ -28,4 +42,4 @@ for (const file of files) {
 }
 
 fs.writeFileSync(outputFile, JSON.stringify(summary, null, 2), 'utf-8');
-console.log(`Wrote summary for ${summary.length} areas to ${outputFile}`); 
+console.log(`Wrote summary for ${summary.length} areas to ${outputFile}`);

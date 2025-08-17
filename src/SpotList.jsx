@@ -33,10 +33,13 @@ function SpotList() {
   // Load spots based on current target area
   useEffect(() => {
     const loadSpots = async () => {
-      console.log('SpotList: loadSpots called, currentTargetArea:', currentTargetArea);
+      console.log('🔄 SpotList: loadSpots called');
+      console.log('   - cityId:', cityId);
+      console.log('   - currentTargetArea:', currentTargetArea);
+      console.log('   - currentTargetArea.name:', currentTargetArea?.name);
       
       if (!currentTargetArea || !cityId) {
-        console.log('SpotList: No currentTargetArea or cityId, staying in loading state');
+        console.log('❌ SpotList: No currentTargetArea or cityId, staying in loading state');
         setLoading(true);
         return;
       }
@@ -47,8 +50,10 @@ function SpotList() {
         
         // Load spots from Cloudflare API
         try {
+          console.log("loading spots ", cityId, currentTargetArea.name)
           const spotsData = await ttsService.getScenicArea(cityId, currentTargetArea.name);
           console.log(`🎯 NORMAL MODE: Loaded ${spotsData.length} spots from Cloudflare for ${currentTargetArea.name}`);
+          console.log('Spots data:', spotsData);
           
           // Filter spots to only include those with tour guide content and display: "show"
           // simplify this filter into one line to only include spots with display: "show"
@@ -210,15 +215,37 @@ function SpotList() {
                   onClick={() => handleSpotClick(spot)}
                 >
                   {(() => {
-                    const thumbUrl = dataService.resolveThumbUrl(cityId, spot.thumbnail);
-                    const sequenceThumb = spot.imageSequence && spot.imageSequence.length > 0
-                      ? dataService.resolveImageUrl(cityId, spot.imageSequence[0].img)
-                      : null;
-                    const hasImage = thumbUrl || sequenceThumb;
-                    if (hasImage) {
+                    // Handle both traditional thumbnail and AMap photos format
+                    let imageUrl = null;
+                    
+                    // Check for traditional thumbnail
+                    if (spot.thumbnail) {
+                      imageUrl = spot.thumbnail.startsWith('http') 
+                        ? spot.thumbnail 
+                        : dataService.resolveThumbUrl(cityId, spot.thumbnail);
+                    }
+                    
+                    // Check for image sequence
+                    if (!imageUrl && spot.imageSequence && spot.imageSequence.length > 0) {
+                      imageUrl = dataService.resolveImageUrl(cityId, spot.imageSequence[0].img);
+                    }
+                    
+                    // Check for AMap photos array
+                    if (!imageUrl && spot.photos && spot.photos.length > 0) {
+                      // If photos is an array of strings (our converted format)
+                      if (typeof spot.photos[0] === 'string') {
+                        imageUrl = spot.photos[0];
+                      }
+                      // If photos is an array of objects with url property (original AMap format)
+                      else if (spot.photos[0].url) {
+                        imageUrl = spot.photos[0].url;
+                      }
+                    }
+                    
+                    if (imageUrl) {
                       return (
                         <img
-                          src={thumbUrl || sequenceThumb}
+                          src={imageUrl}
                           alt={spot.name}
                           className="w-16 h-16 object-cover rounded-lg"
                           onError={(e) => {

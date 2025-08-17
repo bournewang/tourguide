@@ -4,6 +4,8 @@ import './App.css';
 import AccessGate from './components/AccessGate';
 import HomePage from './pages/HomePage';
 import CityWrapper from './CityWrapper';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import ZhengzhouMap from './pages/ZhengzhouMap';
 
 // Import testing utilities only in development
 if (import.meta.env.DEV) {
@@ -26,6 +28,8 @@ function App() {
       <AccessGate>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/zhengzhou-map" element={<ZhengzhouMap />} />
           <Route path="/city/:cityId/*" element={<CityWrapper isAdmin={isAdmin} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -35,4 +39,3 @@ function App() {
 }
 
 export default App;
-

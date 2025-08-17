@@ -11,12 +11,12 @@ const HomePage = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <div className="container mx-auto px-4 py-4 max-w-6xl">
-        <h1 className="text-3xl font-extrabold text-center text-indigo-700 mb-12 tracking-tight">
+      <div className="container mx-auto px-6 py-8 max-w-6xl">
+        <h1 className="text-5xl font-extrabold text-center text-indigo-700 mb-12 tracking-tight">
           探索城市
         </h1>
         {locations.map((province) => (
-          <div key={province.province_id} className="mb-8">
+          <div key={province.province} className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-700 mb-4">
               {province.province}
             </h2>
@@ -31,6 +31,11 @@ const HomePage = () => {
                     <h3 className="text-lg font-bold text-gray-800">
                       {city.name}
                     </h3>
+                    {city.defaultArea && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {city.defaultArea}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
