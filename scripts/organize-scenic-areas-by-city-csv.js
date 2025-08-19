@@ -142,10 +142,9 @@ class CityBasedScenicAreasOrganizer {
 
   // Read scenic areas for a province from all levels
   readProvinceScenicAreas(provinceName) {
-    const scenicAreas = {
+const scenicAreas = {
       '5A': '',
-      '4A': '',
-      '3A': ''
+      '4A': ''
     };
 
     // Try different variations of province name
@@ -160,7 +159,7 @@ class CityBasedScenicAreasOrganizer {
       provinceName.replace('藏族自治区', '')
     ];
 
-    for (const level of ['5A', '4A', '3A']) {
+for (const level of ['5A', '4A']) {
       let found = false;
       for (const variation of provinceVariations) {
         const filePath = path.join('areas', level, variation);
@@ -186,7 +185,7 @@ class CityBasedScenicAreasOrganizer {
 
   // Create AI prompt for a specific city with raw data context
   createCityPrompt(cityName, provinceName, scenicAreas) {
-    return `请从以下${provinceName}省的景区数据中，提取${cityName}市的所有5A、4A、3A级景区。
+return `请从以下${provinceName}省的景区数据中，提取${cityName}市的所有5A、4A级景区。
 
 要求返回JSON格式，结构如下：
 {
@@ -207,10 +206,11 @@ class CityBasedScenicAreasOrganizer {
 1. 从原始数据中提取属于${cityName}市的景区，不要遗漏
 2. 根据景区名称和地址信息准确判断是否属于${cityName}市
 3. 描述简洁但信息丰富（50-80字）
-4. 保持景区的原始等级（5A/4A/3A）
+4. 保持景区的原始等级（5A/4A）
 5. 返回景区的半径（单位是米）
 6. 只返回JSON，不要其他文字
 7. 如果该城市没有相应等级的景区，返回空数组
+8. 有些景区不适合导游讲解，如游乐园类、现代商业开发景点、休闲度假类等，请返回多一个字段"display": "hide"
 
 原始数据：
 
@@ -220,10 +220,73 @@ ${scenicAreas['5A'] || '无数据'}
 4A级景区数据：
 ${scenicAreas['4A'] || '无数据'}
 
-3A级景区数据：
-${scenicAreas['3A'] || '无数据'}
 
 `;
+  }
+
+  // Load national parks data
+  loadNationalParks() {
+    try {
+      const nationalParksPath = path.join('assets', 'national_parks.json');
+      if (!fs.existsSync(nationalParksPath)) {
+        console.log('⚠️ National parks file not found, skipping national parks integration');
+        return [];
+      }
+      
+      const content = fs.readFileSync(nationalParksPath, 'utf8');
+      const nationalParks = JSON.parse(content);
+      console.log(`📖 Loaded ${nationalParks.length} national parks`);
+      return nationalParks;
+    } catch (error) {
+      console.error('Error loading national parks:', error.message);
+      return [];
+    }
+  }
+
+  // Get national parks for a specific city
+  getNationalParksForCity(cityName, provinceName) {
+    const nationalParks = this.loadNationalParks();
+    
+    // Filter national parks for this city
+    const cityParks = nationalParks.filter(park => {
+      // Try exact city match first
+      if (park.city === cityName) {
+        return true;
+      }
+      
+      // Try with province match as fallback
+      if (park.province === provinceName && (
+        park.city === cityName ||
+        park.city.includes(cityName) ||
+        cityName.includes(park.city)
+      )) {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    console.log(`🏛️ Found ${cityParks.length} national parks for ${cityName}, ${provinceName}`);
+    return cityParks;
+  }
+
+  // Convert national park to scenic area format
+  convertNationalParkToScenicArea(park) {
+    return {
+      name: park.name,
+      level: 'national-park', // Standardized level field for easy filtering
+      address: park.address,
+      radius: park.radius,
+      description: park.description,
+      city: park.city,
+      province: park.province,
+      // Keep original coordinates as backup but don't mark as validated
+      originalCoordinates: {
+        lat: park.center.lat,
+        lng: park.center.lng
+      },
+      source: 'national_parks' // Mark the source for reference
+    };
   }
 
   // Process a single city
@@ -237,7 +300,7 @@ ${scenicAreas['3A'] || '无数据'}
       }
       
       // Check if we have any content
-      const hasContent = scenicAreas['5A'] || scenicAreas['4A'] || scenicAreas['3A'];
+const hasContent = scenicAreas['5A'] || scenicAreas['4A'];
       if (!hasContent) {
         console.log(`⚠️ No scenic areas data found for ${provinceName}, skipping ${cityName}...`);
         return {
@@ -258,9 +321,61 @@ ${scenicAreas['3A'] || '无数据'}
       const validation = this.validateCityResponse(cityName, provinceName, cityData);
       console.log(`✅ Validation result:`, validation);
       
-      // Fetch accurate coordinates for scenic areas
+      // Get national parks for this city and merge them
+      const nationalParks = this.getNationalParksForCity(cityName, provinceName);
+      if (nationalParks.length > 0) {
+        console.log(`🏛️ Adding ${nationalParks.length} national parks to ${cityName}...`);
+        
+        // Convert national parks to scenic area format
+        const nationalParkAreas = nationalParks.map(park => this.convertNationalParkToScenicArea(park));
+        
+        // Initialize scenicAreas array if it doesn't exist
+        if (!cityData.scenicAreas) {
+          cityData.scenicAreas = [];
+        }
+        
+        // Merge national parks with AI-generated scenic areas
+        // Check for duplicates by exact name match only to avoid false positives
+        nationalParkAreas.forEach(nationalPark => {
+          // Only consider exact name matches as duplicates
+          const existingArea = cityData.scenicAreas.find(area => {
+            // Exact match
+            if (area.name === nationalPark.name) {
+              return true;
+            }
+            
+            // Very strict similarity check - both must contain the same core name
+            const normalizeAreaName = (name) => {
+              return name
+                .replace(/风景名胜区$/, '')
+                .replace(/景区$/, '')
+                .replace(/公园$/, '')
+                .replace(/风景区$/, '')
+                .replace(/旅游区$/, '')
+                .replace(/度假区$/, '')
+                .trim();
+            };
+            
+            const normalizedNationalPark = normalizeAreaName(nationalPark.name);
+            const normalizedExisting = normalizeAreaName(area.name);
+            
+            // Only treat as duplicate if normalized names are identical
+            // This avoids cases like "嵩山风景名胜区" vs "郑州市嵩山少林景区"
+            return normalizedNationalPark === normalizedExisting && normalizedNationalPark.length > 2;
+          });
+          
+          if (!existingArea) {
+            cityData.scenicAreas.push(nationalPark);
+            console.log(`  ✅ Added national park: ${nationalPark.name}`);
+          } else {
+            console.log(`  ⚠️ Skipped duplicate: ${nationalPark.name} (exact match with ${existingArea.name})`);
+          }
+        });
+      }
+      
+      // Fetch accurate coordinates for all scenic areas (including national parks)
       if (cityData.scenicAreas && cityData.scenicAreas.length > 0) {
-        console.log(`\n🗺️ Fetching accurate coordinates for ${cityData.scenicAreas.length} scenic areas...`);
+        console.log(`\n🗺️ Fetching fresh coordinates for all ${cityData.scenicAreas.length} scenic areas...`);
         
         // Add city and province info to each scenic area for better coordinate lookup
         cityData.scenicAreas.forEach(area => {
@@ -268,7 +383,7 @@ ${scenicAreas['3A'] || '无数据'}
           area.province = provinceName;
         });
         
-        // Fetch coordinates using Baidu API
+        // Fetch coordinates using coordinate service for all areas
         await this.coordinateService.fetchCoordinatesForScenicAreas(cityData.scenicAreas);
         
         console.log(`✅ Coordinate fetching completed for ${cityName}`);

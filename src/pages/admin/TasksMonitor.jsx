@@ -117,6 +117,8 @@ const TasksMonitor = ({ socket }) => {
 
   const getTaskTypeLabel = (type) => {
     switch (type) {
+      case 'ORGANIZE_PROVINCE_DATA': return '整理省份数据';
+      case 'SEARCH_CITY_SPOTS': return '搜索城市景点';
       case 'CREATE_CITY_STRUCTURE': return '创建城市结构';
       case 'SEARCH_NEARBY_SPOTS': return '搜索附近景点';
       case 'GENERATE_SUMMARY': return '生成摘要';

@@ -319,52 +319,7 @@ export async function searchSpotsInCity(cityFilePath, options = {}) {
     for (const [index, scenicArea] of cityData.scenicAreas.entries()) {
       console.log(`\n🔄 Processing scenic area ${index + 1}/${cityData.scenicAreas.length}: ${scenicArea.name}`);
       
-      try {
-        // Get proper coordinates for the scenic area if missing or invalid
-        if (!scenicArea.center || scenicArea.center.lat === 34.7466 && scenicArea.center.lng === 113.6253) {
-          console.log(`🗺️ Getting coordinates for ${scenicArea.name}...`);
-          
-          try {
-            const searchQuery = `${scenicArea.name} ${scenicArea.address || ''}`.trim();
-            console.log(`🔍 Geocoding: "${searchQuery}"`);
-            
-            const result = await amapCoordinateService.fetchCoordinate({
-              name: scenicArea.name,
-              address: scenicArea.address || '',
-              city: cityData.city,
-              province: cityData.province
-            });
-            
-            if (result && result.coordinates && result.coordinates.lat && result.coordinates.lng) {
-              scenicArea.center = {
-                lat: result.coordinates.lat,
-                lng: result.coordinates.lng
-              };
-              
-              scenicArea.coordinateInfo = {
-                source: result.source || 'amap_geocoding',
-                status: result.status || 'success',
-                query: result.query || searchQuery,
-                timestamp: result.timestamp || new Date().toISOString(),
-                formatted_address: result.formatted_address,
-                confidence: result.confidence
-              };
-              
-              console.log(`✅ Got coordinates for ${scenicArea.name}: ${result.coordinates.lat}, ${result.coordinates.lng}`);
-            } else {
-              console.log(`❌ Could not get coordinates for ${scenicArea.name}, skipping...`);
-              continue; // Skip this scenic area if we can't get coordinates
-            }
-            
-            // Add delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 500));
-          } catch (error) {
-            console.error(`❌ Error getting coordinates for ${scenicArea.name}: ${error.message}`);
-            console.log(`⏭️ Skipping ${scenicArea.name}`);
-            continue; // Skip this scenic area if coordinate fetching fails
-          }
-        }
-        
+      try {        
         // Set output file path
         const fileName = `${scenicArea.name.toLowerCase().replace(/[^\w\u4e00-\u9fff]/g, '')}.json`;
         const outputPath = path.join(outputDir, fileName);
